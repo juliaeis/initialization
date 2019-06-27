@@ -1,11 +1,9 @@
 import os
 import sys
 from copy import deepcopy
-sys.path.append('../')
-sys.path.append('../paper')
-from initialization.core import *
-from initialization.animation import *
-from paper import plots_paper
+sys.path.append('../../')
+from  initialization.core import *
+from paper.plots_paper import *
 from mpl_toolkits.axes_grid.anchored_artists import AnchoredText
 
 import matplotlib
@@ -356,7 +354,7 @@ def _run_experiment(gdir, bias):
         fls = gdir.read_pickle('model_flowlines')
         # try to run random climate with temperature bias -1
         try:
-            model = tasks.run_random_climate(gdir, nyears=400, y0=1850, bias=bias, seed=1,
+            model = tasks.run_random_climate(gdir, nyears=400, y0=1866, bias=bias, seed=1,
                                              temperature_bias=-1,
                                              init_model_fls=fls)
 
@@ -364,7 +362,7 @@ def _run_experiment(gdir, bias):
             # 1850 - 2000 with past climate file
 
             fls = deepcopy(model.fls)
-            model = tasks.run_from_climate_data(gdir, ys=1850, ye=2000, init_model_fls=fls,bias=bias,
+            model = tasks.run_from_climate_data(gdir, ys=1866, ye=2000, init_model_fls=fls,bias=bias,
                                         output_filesuffix='_advanced_experiment_'+str(bias))
         except:
             pass
@@ -373,53 +371,59 @@ def _run_experiment(gdir, bias):
 
 def find_residual(gdir, a=-2000,b=2000):
 
-    max_it = 15
-    i = 0
-    bounds = [a,b]
+    try:
 
-    df = pd.DataFrame()
+        max_it = 15
+        i = 0
+        bounds = [a,b]
 
-    fls = gdir.read_pickle('model_flowlines')
-    mod = FluxBasedModel(flowlines=fls)
+        df = pd.DataFrame()
 
-    while i < max_it:
-        bias = round((bounds[0] + bounds[1]) / 2,1)
-        ex_mod2 = _run_experiment(gdir, bias)
-        fit = fitness_function(ex_mod2,mod)
-        df = df.append(pd.Series({'bias':bias,'fitness':fit}),ignore_index=True)
+        fls = gdir.read_pickle('model_flowlines')
+        mod = FluxBasedModel(flowlines=fls)
 
-        if bounds[1]-bounds[0]<=1:
-            break
+        while i < max_it:
+            bias = round((bounds[0] + bounds[1]) / 2,1)
+            ex_mod2 = _run_experiment(gdir, bias)
+            fit = fitness_function(ex_mod2,mod)
+            df = df.append(pd.Series({'bias':bias,'fitness':fit}),ignore_index=True)
 
-        elif ex_mod2.area_km2 > mod.area_km2:
-            bounds[0] = bias
-        else:
-            bounds[1] = bias
-        i +=1
+            if bounds[1]-bounds[0]<=1:
+                break
 
-    # best bias found
-    bias = df.iloc[df.fitness.idxmin()].bias
-    rp = gdir.get_filepath('model_run', filesuffix='_advanced_experiment_' + str(bias))
-    model = FileModel(rp)
-    model.run_until(2000)
+            elif ex_mod2.area_km2 > mod.area_km2:
+                bounds[0] = bias
+            else:
+                bounds[1] = bias
+            i +=1
 
-    rp = gdir.get_filepath('model_run', filesuffix='_advanced_experiment_' + str(0.0))
-    ex_mod = FileModel(rp)
-    ex_mod.run_until(2000)
+        # best bias found
+        bias = df.iloc[df.fitness.idxmin()].bias
+        rp = gdir.get_filepath('model_run', filesuffix='_advanced_experiment_' + str(bias))
+        model = FileModel(rp)
+        model.run_until(2000)
 
-    plt.figure(figsize=(15,10))
-    plt.plot(model.fls[-1].surface_h,'r',label='best')
-    plt.plot(mod.fls[-1].surface_h, 'orange', label='original')
-    plt.plot(ex_mod.fls[-1].surface_h, 'r:', label='old experiment')
-    plt.plot(model.fls[-1].bed_h,'k', label='bed')
-    plt.legend()
-    plt.savefig(os.path.join(cfg.PATHS['plot_dir'],'bias_test',gdir.rgi_id+'.png'),dpi=200)
-    diff = mod.area_km2 - model.area_km2_ts()[2000]
-    model.reset_y0(1850)
+        rp = gdir.get_filepath('model_run', filesuffix='_advanced_experiment_' + str(0.0))
+        ex_mod = FileModel(rp)
+        ex_mod.run_until(2000)
 
-    series = pd.Series({'rgi_id':gdir.rgi_id,'bias':bias,'iterations':i, 'fitness':fit, 'area_diff':diff, 'model':model})
+        plt.figure(figsize=(15,10))
+        plt.plot(model.fls[-1].surface_h,'r',label='best')
+        plt.plot(mod.fls[-1].surface_h, 'orange', label='original')
+        plt.plot(ex_mod.fls[-1].surface_h, 'r:', label='old experiment')
+        plt.plot(model.fls[-1].bed_h,'k', label='bed')
+        plt.legend()
+        utils.mkdir(os.path.join(cfg.PATHS['plot_dir'],'bias_test'))
+        plt.savefig(os.path.join(cfg.PATHS['plot_dir'],'bias_test',gdir.rgi_id+'.png'),dpi=200)
+        diff = mod.area_km2 - model.area_km2_ts()[2000]
+        model.reset_y0(1865)
+
+        series = pd.Series({'rgi_id':gdir.rgi_id,'bias':bias,'iterations':i, 'fitness':fit, 'area_diff':diff, 'model':model})
+    except:
+        series =  pd.Series({'rgi_id':gdir.rgi_id})
 
     return series
+
 
 if __name__ == '__main__':
     cfg.initialize()
@@ -431,7 +435,7 @@ if __name__ == '__main__':
         WORKING_DIR = os.environ.get("S_WORKDIR")
         cfg.PATHS['working_dir'] = WORKING_DIR
     else:
-        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/advanced_experiments/'
+        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/advanced_experiments2/'
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
 
@@ -449,31 +453,35 @@ if __name__ == '__main__':
 
     # Use HISTALP climate file
     cfg.PARAMS['baseline_climate'] = 'HISTALP'
+    cfg.PARAMS['baseline_y0'] = 1850
+    cfg.PARAMS['prcp_scaling_factor'] = 1.75
+    cfg.PARAMS['temp_all_liq'] = 2.0
+    cfg.PARAMS['temp_default_gradient'] = -0.0065
+    cfg.PARAMS['temp_melt']= -1.75
+    cfg.PARAMS['temp_all_solid'] = 0.0
+
 
     # We use intersects
     db = utils.get_rgi_intersects_region_file(version='61', region='11')
     cfg.set_intersects_db(db)
 
-    cfg.PARAMS['run_mb_calibration'] = True
+    cfg.PARAMS['run_mb_calibration'] = False
     cfg.PARAMS['optimize_inversion_params'] = False
 
     # RGI file
     path = utils.get_rgi_region_file('11', version='61')
     rgidf = gpd.read_file(path)
-    #rgidf = rgidf[rgidf.RGIId == 'RGI60-11.00001']
-    #rgidf = rgidf.head()
 
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=False)
-
-    gdirs = workflow.init_glacier_regions(rgidf.head(50))
+    gdirs = workflow.init_glacier_regions(rgidf.tail(4))
 
     preprocessing(gdirs)
 
     # experiments
     #synthetic_experiments_parallel(gdirs)
 
-    t_0 = 1850
+    t_0 = 1865
     t_e = 2000
     epsilon = 125
 

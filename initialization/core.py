@@ -407,6 +407,9 @@ def preprocessing(gdirs):
     :param gdirs: list of oggm.GlacierDirectories
     :return None, but creates required files
     """
+    '''
+
+
     workflow.execute_entity_task(tasks.glacier_masks, gdirs)
 
     list_tasks = [
@@ -428,6 +431,11 @@ def preprocessing(gdirs):
     workflow.execute_entity_task(tasks.prepare_for_inversion, gdirs)
     workflow.execute_entity_task(mass_conservation_inversion, gdirs)
     workflow.execute_entity_task(tasks.filter_inversion_output, gdirs)
+    '''
+
+    workflow.gis_prepro_tasks(gdirs)
+    workflow.climate_tasks(gdirs)
+    workflow.inversion_tasks(gdirs)
     workflow.execute_entity_task(tasks.init_present_time_glacier, gdirs)
 
 
