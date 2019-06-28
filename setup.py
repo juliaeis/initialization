@@ -24,19 +24,19 @@ req_packages = ['numpy',
 
 setup(
 	  # Project info
-	  name='reconstruction',
+	  name='initialization',
       version='0.1',
-      description='reconstruction of estimated glacier states',
+      description='initialization of past glacier states',
 	  # Github repostiory link
-      url='http://github.com/OGGM/reconstruction',
+      url='http://github.com/OGGM/initialization',
 	  # Authors details
       author='OGGM Developers',
       author_email='jeis@uni-bremen.de',
 	  # License
       license='GPLv3+',
 	  # What does the project relate to?
-	  keywords=['geosciences', 'glaciers', 'reconstructions'],
-      packages=['reconstruction'],
+	  keywords=['geosciences', 'glaciers', 'initialization'],
+      packages=['initialization'],
 	  # Python 3 only 
 	  python_requires='>=3.5',
 	  # Install all dependencies --> same as for OGGM

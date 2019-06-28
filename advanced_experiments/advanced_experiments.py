@@ -1,6 +1,7 @@
 import os
 import sys
 from copy import deepcopy
+sys.path.append('../')
 sys.path.append('../../')
 from  initialization.core import *
 from paper.plots_paper import *
@@ -428,7 +429,7 @@ def find_residual(gdir, a=-2000,b=2000):
 if __name__ == '__main__':
     cfg.initialize()
 
-    ON_CLUSTER = False
+    ON_CLUSTER = True
 
     # Local paths
     if ON_CLUSTER:
@@ -474,7 +475,7 @@ if __name__ == '__main__':
 
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=False)
-    gdirs = workflow.init_glacier_regions(rgidf.tail(4))
+    gdirs = workflow.init_glacier_regions(rgidf)
 
     preprocessing(gdirs)
 
