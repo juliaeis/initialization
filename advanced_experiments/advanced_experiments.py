@@ -6,6 +6,8 @@ from  initialization.core import *
 from paper.plots_paper import *
 from mpl_toolkits.axes_grid.anchored_artists import AnchoredText
 
+matplotlib.use('TkAgg')
+
 import matplotlib
 import matplotlib.pyplot as plt
 import time
@@ -382,13 +384,16 @@ def find_residual(gdir, a=-2000,b=2000):
         fls = gdir.read_pickle('model_flowlines')
         mod = FluxBasedModel(flowlines=fls)
 
+        rp = gdir.get_filepath('model_run',filesuffix='_advanced_experiment_' + str(0.0))
+        ex_mod = FileModel(rp)
+        ex_mod.run_until(2000)
+
         while i < max_it:
             bias = round((bounds[0] + bounds[1]) / 2,1)
             ex_mod2 = _run_experiment(gdir, bias)
             fit = fitness_function(ex_mod2,mod)
             df = df.append(pd.Series({'bias':bias,'fitness':fit}),ignore_index=True)
-
-            if bounds[1]-bounds[0]<=1:
+            if  (abs(mod.area_km2-ex_mod2.area_km2)<1e-4 and fit<125) or bounds[1]-bounds[0]<=1:
                 break
 
             elif ex_mod2.area_km2 > mod.area_km2:
@@ -407,6 +412,7 @@ def find_residual(gdir, a=-2000,b=2000):
         ex_mod = FileModel(rp)
         ex_mod.run_until(2000)
 
+
         plt.figure(figsize=(15,10))
         plt.plot(model.fls[-1].surface_h,'r',label='best')
         plt.plot(mod.fls[-1].surface_h, 'orange', label='original')
@@ -415,10 +421,13 @@ def find_residual(gdir, a=-2000,b=2000):
         plt.legend()
         utils.mkdir(os.path.join(cfg.PATHS['plot_dir'],'bias_test'))
         plt.savefig(os.path.join(cfg.PATHS['plot_dir'],'bias_test',gdir.rgi_id+'.png'),dpi=200)
-        diff = mod.area_km2 - model.area_km2_ts()[2000]
-        model.reset_y0(1865)
 
-        series = pd.Series({'rgi_id':gdir.rgi_id,'bias':bias,'iterations':i, 'fitness':fit, 'area_diff':diff, 'model':model})
+
+        diff = mod.area_km2 - model.area_km2_ts()[2000]
+        model.reset_y0(1850)
+        print(gdir.rgi_id, i, bias, df.fitness.min())
+
+        series = pd.Series({'rgi_id':gdir.rgi_id,'bias':bias,'iterations':i, 'fitness':df.fitness.min(), 'area_diff':diff, 'model':model})
     except:
         series =  pd.Series({'rgi_id':gdir.rgi_id})
 
@@ -434,8 +443,9 @@ if __name__ == '__main__':
     if ON_CLUSTER:
         WORKING_DIR = os.environ.get("S_WORKDIR")
         cfg.PATHS['working_dir'] = WORKING_DIR
+        job_nr = int(os.environ.get('I'))
     else:
-        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/advanced_experiments2/'
+        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/cluster_advanced_experiments/advanced'
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
 
@@ -453,7 +463,7 @@ if __name__ == '__main__':
 
     # Use HISTALP climate file
     cfg.PARAMS['baseline_climate'] = 'HISTALP'
-    cfg.PARAMS['baseline_y0'] = 1850
+    #cfg.PARAMS['baseline_y0'] = 1850
     cfg.PARAMS['prcp_scaling_factor'] = 1.75
     cfg.PARAMS['temp_all_liq'] = 2.0
     cfg.PARAMS['temp_default_gradient'] = -0.0065
@@ -474,14 +484,17 @@ if __name__ == '__main__':
 
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=False)
-    gdirs = workflow.init_glacier_regions(rgidf.tail(4))
+    gdirs = workflow.init_glacier_regions(rgidf)
+
+    if ON_CLUSTER:
+        gdirs = gdirs[job_nr:len(gdirs):80]
 
     preprocessing(gdirs)
 
     # experiments
     #synthetic_experiments_parallel(gdirs)
 
-    t_0 = 1865
+    t_0 = 1850
     t_e = 2000
     epsilon = 125
 
@@ -493,11 +506,16 @@ if __name__ == '__main__':
     pool.join()
 
     exp_df = exp_df.append(list, ignore_index=True)
-    exp_df.to_pickle(os.path.join(cfg.PATHS['working_dir'],'advanced_experiments.pkl'))
-
-    #exp_df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'],'advanced_experiments.pkl'))
-
+    exp_df.to_pickle(os.path.join(cfg.PATHS['working_dir'],'advanced_experiments_' + str(job_nr) + '.pkl'))
     '''
+    exp_df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'],'advanced_experiments.pkl'))
+    exp_df = exp_df.dropna()
+
+    exp_df.fitness = exp_df.fitness / 125
+    exp_df.fitness.plot.hist(bins=50)
+
+    plt.show()
+
     for gdir in gdirs:
         print(gdir.rgi_id)
         try:
