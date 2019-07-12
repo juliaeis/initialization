@@ -73,13 +73,13 @@ def plot_experiment(gdir, ex_mod, ys, plot_dir):
     i = np.where(ex_mod.fls[-1].thick > 0)[0][-1] + 10
 
     ax1.plot(x[:i], ex_mod.fls[-1].surface_h[:i], 'k:',
-             label=r'$x_{'+str(ys)+'}^{exp}$', linewidth=3)
+             label=r'$z_{'+str(ys)+'}^{exp}$', linewidth=3)
     ax1.plot(x[:i], ex_mod.fls[-1].bed_h[:i], 'k', label=r'$b$', linewidth=3)
 
     ex_mod.run_until(2000)
 
     ax2.plot(x[:i], ex_mod.fls[-1].surface_h[:i], 'k:',
-             label=r'$x_{2000}^{exp = obs} $', linewidth=3)
+             label=r'$z_{2000}^{exp = obs} $', linewidth=3)
     ax2.plot(x[:i], ex_mod.fls[-1].bed_h[:i], 'k', label=r'$b$', linewidth=3)
 
     # add figure names and legends
@@ -153,21 +153,33 @@ def plot_candidates(gdir, df, yr, step, plot_dir):
         ax.axvline(x=int(t_eq), color='k', zorder=1)
 
         cmap = matplotlib.cm.get_cmap('viridis')
+        norm = mpl.colors.LogNorm(vmin=0.01 / 125, vmax=10)
 
-        df.plot.scatter(x='time', y='volume', ax=ax, c='Fitness value',
+        im=df.plot.scatter(x='time', y='volume', ax=ax, c='Fitness value',
                         colormap='viridis',
-                        norm=mpl.colors.LogNorm(vmin=0.01, vmax=1000, clip=True),
-                        s=250, edgecolors='k', zorder=2)
+                        norm=mpl.colors.LogNorm(vmin=0.01/125, vmax=10, clip=True),
+                        s=250, edgecolors='k', zorder=2,colorbar=False)
         # plot again points with objective == 0, without norm
         if len(df[df.fitness == 0]) > 0:
             df[df.fitness == 0].plot.scatter(x='time', y='volume', ax=ax,
                                                c=cmap(0), s=250,
-                                               edgecolors='k', zorder=2)
+                                               edgecolors='k', zorder=2, colorbar=False)
 
+        plt.xlim(-25, 425)
         plt.xlabel('Time (years)')
         plt.ylabel(r'Volume $(km^3)$')
+
+        # add colorbar
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        #cax, kw = mpl.colorbar.make_axes([ax1, ax2, ax3])
+        cbar = fig.colorbar(sm, extend='both')
+        cbar.ax.tick_params(labelsize=30)
+        cbar.set_label('Fitness value', fontsize=30)
+
         plt.savefig(os.path.join(plot_dir, 'candidates3_' + str(yr) + '_' +
                                  str(gdir.rgi_id) + '.png'), dpi=300)
+
     plt.close()
 
     plt.figure(figsize=(15, 14))
@@ -199,7 +211,7 @@ def plot_fitness_values(gdir, df, ex_mod, ys, plot_dir):
     else:
         plt.suptitle(gdir.rgi_id, fontsize=30)
 
-    norm = mpl.colors.LogNorm(vmin=0.01, vmax=1000)
+    norm = mpl.colors.LogNorm(vmin=0.01/125, vmax=10)
     cmap = matplotlib.cm.get_cmap('viridis')
 
     # df = df.sort_values('objective', ascending=False)
@@ -240,7 +252,7 @@ def plot_fitness_values(gdir, df, ex_mod, ys, plot_dir):
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     cax, kw = mpl.colorbar.make_axes([ax1, ax2, ax3])
-    cbar = fig.colorbar(sm, cax=cax, **kw)
+    cbar = fig.colorbar(sm, cax=cax, extend='both', **kw)
     cbar.ax.tick_params(labelsize=30)
     cbar.set_label('Fitness value', fontsize=30)
 
@@ -278,14 +290,14 @@ def plot_fitness_values(gdir, df, ex_mod, ys, plot_dir):
 
     l1 = ax1.legend(handles=[lc3, lc, lc2], handler_map={
         lc: HandlerColorLineCollection(numpoints=100)},
-                    labels=[r'$x_{' + str(ys) + '}^{exp}$',
-                            r'$x_{' + str(ys) + '}$',
+                    labels=[r'$z_{' + str(ys) + '}^{exp}$',
+                            r'$z_{' + str(ys) + '}$',
                             r'$b$'], loc=1)
 
     l2 = ax2.legend(handles=[lc3, lc, lc2],
                     handler_map={
                         lc: HandlerColorLineCollection(numpoints=100)},
-                    labels=[r'$x_{2000}^{obs}$', r'$x_{2000}$',
+                    labels=[r'$z_{2000}^{obs}$', r'$z_{2000}$',
                             r'$b$'], loc=1)
 
     l3 = ax3.legend(handles=[lc3, lc],
@@ -328,7 +340,7 @@ def plot_median(gdir, df, eps, ex_mod, ys, ye, plot_dir):
     df = df.sort_values('fitness', ascending=False)
 
     # acceptable glacier states
-    df = df[df.fitness < eps]
+    df = df[df.fitness <=1]
     s_t0 = pd.DataFrame()
     s_te = pd.DataFrame()
     v = pd.DataFrame()
@@ -390,10 +402,10 @@ def plot_median(gdir, df, eps, ex_mod, ys, ye, plot_dir):
     median_model.reset_y0(1850)
     median_model.run_until(ys)
 
-    ax1.plot(x, median_model.fls[-1].surface_h, label=r'$x_{1850}^{med}$',
+    ax1.plot(x, median_model.fls[-1].surface_h, label=r'$z_{1850}^{med}$',
              linewidth=3)
     median_model.run_until(2000)
-    ax2.plot(x, median_model.fls[-1].surface_h, label=r'$x_{2000}^{med}$',
+    ax2.plot(x, median_model.fls[-1].surface_h, label=r'$z_{2000}^{med}$',
              linewidth=3)
 
     # min model
@@ -403,12 +415,12 @@ def plot_median(gdir, df, eps, ex_mod, ys, ye, plot_dir):
     min_mod.reset_y0(ys)
     min_mod.run_until(ys)
 
-    ax1.plot(x, min_mod.fls[-1].surface_h, 'C1', label=r'$x_{1850}^{min}$',
+    ax1.plot(x, min_mod.fls[-1].surface_h, 'C1', label=r'$z_{1850}^{min}$',
              linewidth=3)
 
     min_mod.run_until(ye)
 
-    ax2.plot(x, min_mod.fls[-1].surface_h, 'C1', label=r'$x_{2000}^{min}$',
+    ax2.plot(x, min_mod.fls[-1].surface_h, 'C1', label=r'$z_{2000}^{min}$',
              linewidth=3)
 
     # experiment
@@ -418,13 +430,13 @@ def plot_median(gdir, df, eps, ex_mod, ys, ye, plot_dir):
     ex_mod.reset_y0(1850)
     ex_mod.run_until(ys)
 
-    ax1.plot(x, ex_mod.fls[-1].surface_h, 'k:', label=r'$x_{1850}^{exp}$',
+    ax1.plot(x, ex_mod.fls[-1].surface_h, 'k:', label=r'$z_{1850}^{exp}$',
              linewidth=3)
     ax1.plot(x, ex_mod.fls[-1].bed_h, 'k', label=r'$b$', linewidth=3)
 
     ex_mod.run_until(2000)
 
-    ax2.plot(x, ex_mod.fls[-1].surface_h, 'k:', label=r'$x_{1850}^{exp}$',
+    ax2.plot(x, ex_mod.fls[-1].surface_h, 'k:', label=r'$z_{1850}^{exp}$',
              linewidth=3)
     ax2.plot(x, ex_mod.fls[-1].bed_h, 'k', label=r'$b$', linewidth=3)
 

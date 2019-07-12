@@ -40,16 +40,10 @@ def _run_parallel_experiment(gdir):
     try:
         fls = gdir.read_pickle('model_flowlines')
         # try to run random climate with temperature bias -1
-        try:
-            model = tasks.run_random_climate(gdir, nyears=400, y0=1850, bias=0, seed=1,
-                                             temperature_bias=-1,
-                                             init_model_fls=fls)
 
-        # perhaps temperature_bias -1 was to ambitious, try larger one
-        except:
-            model = tasks.run_random_climate(gdir, nyears=400, bias=0, y0=1850, seed=1,
-                                             temperature_bias=-0.5,
-                                             init_model_fls=fls)
+        model = tasks.run_random_climate(gdir, nyears=400, y0=1850, bias=0, seed=1,
+                                         temperature_bias=-1,
+                                         init_model_fls=fls)
 
         # construct observed glacier, previous glacier will be run forward from
         # 1850 - 2000 with past climate file
@@ -234,10 +228,6 @@ def find_possible_glaciers(gdir, y0, ye, n):
     if os.path.isfile(path):
         results = pd.read_pickle(path, compression='gzip')
         return results
-        '''
-        if len(results) == n:
-            return results
-        '''
 
     # 1. Generation of possible glacier states
     #    - Run random climate over 400 years with different temperature biases
@@ -329,14 +319,7 @@ def evaluation(gdir, fls_list, y0, ye):
 
     df = pd.DataFrame()
     prefix = 'model_run'+str(y0)+'_past'
-    '''
-    list = [f.split('model_run')[-1].split('.nc')[0] for f in
-            os.listdir(gdir.dir) if f.startswith(prefix)]
-    if len(list)==0:
-        list = [f.split('model_run')[-1].split('.nc')[0] for f in
-                os.listdir(os.path.join(gdir.dir,str(y0))) if f.startswith(prefix)]
-    print(list)
-    '''
+
     # read experiment
     ep = gdir.get_filepath('model_run', filesuffix='_experiment')
     emod = FileModel(ep)

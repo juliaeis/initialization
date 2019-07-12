@@ -3,7 +3,7 @@ import os
 import sys
 from copy import deepcopy
 sys.path.append('../')
-from reconstruction.core import *
+from initialization.core import *
 from plots_paper import *
 
 import matplotlib.pyplot as plt
@@ -13,10 +13,11 @@ from oggm import cfg, workflow, utils
 pd.options.mode.chained_assignment = None
 import time
 
-def find_median(df, epsilon):
+def find_median(df):
 
     try:
-        accept_df = df[df.fitness <= epsilon]
+        accept_df = df[df.fitness <= 1]
+
         quant_df = accept_df[accept_df.fitness <= accept_df.fitness.quantile(0.05)]
         # median state
         quant_df.loc[:, 'length'] = quant_df.model.apply(lambda x: x.length_m)
@@ -32,6 +33,7 @@ def find_median(df, epsilon):
 
         return deepcopy(df.iloc[df.fitness.idxmin()].model)
 
+
 if __name__ == '__main__':
     cfg.initialize()
 
@@ -43,7 +45,7 @@ if __name__ == '__main__':
         cfg.PATHS['working_dir'] = WORKING_DIR
         job_nr = int(os.environ.get('I'))
     else:
-        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/alps/'
+        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/alps2/'
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
 
@@ -61,38 +63,44 @@ if __name__ == '__main__':
 
     # Use HISTALP climate file
     cfg.PARAMS['baseline_climate'] = 'HISTALP'
-
-    # We use intersects
-    db = utils.get_rgi_intersects_region_file(version='61', region='11')
-    cfg.set_intersects_db(db)
-
-    cfg.PARAMS['run_mb_calibration'] = True
-    cfg.PARAMS['optimize_inversion_params'] = False
+    cfg.PARAMS['prcp_scaling_factor'] = 1.75
+    cfg.PARAMS['temp_all_liq'] = 2.0
+    cfg.PARAMS['temp_default_gradient'] = -0.0065
+    cfg.PARAMS['temp_melt'] = -1.75
+    cfg.PARAMS['temp_all_solid'] = 0.0
 
     # add to BASENAMES
     _doc = 'contains observed and searched glacier from synthetic experiment to find intial state'
     cfg.BASENAMES['synthetic_experiment'] = ('synthetic_experiment.pkl', _doc)
 
+    # We use intersects
+    db = utils.get_rgi_intersects_region_file(version='61', region='11')
+    cfg.set_intersects_db(db)
+
+    cfg.PARAMS['run_mb_calibration'] = False
+    cfg.PARAMS['optimize_inversion_params'] = False
+
     # RGI file
     path = utils.get_rgi_region_file('11', version='61')
     rgidf = gpd.read_file(path)
+    #rgidf = rgidf[rgidf.RGIId == 'RGI60-11.00897']
 
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=False)
 
+    if ON_CLUSTER:
+        rgidf = rgidf[job_nr:len(rgidf):80]
+
     gdirs = workflow.init_glacier_regions(rgidf)
+
     preprocessing(gdirs)
 
-    if ON_CLUSTER:
-        gdirs = gdirs[job_nr:len(gdirs):80]
-
-    #preprocessing(gdirs)
-
     # experiments
-    synthetic_experiments_parallel(gdirs)
+    synthetic_experiments_parallel(gdirs[:1])
 
     t_0 = 1850
     t_e = 2000
+    epsilon = 125
 
     model_df = pd.DataFrame()
     time_df = pd.DataFrame()
@@ -109,7 +117,9 @@ if __name__ == '__main__':
                 if ex_mod.area_km2_ts()[2000] > 0.01:
 
                         df = find_possible_glaciers(gdir, t_0, t_e, 200)
-                        med_mod = find_median(df, 125)
+                        df['fitness'] = df.fitness/125
+
+                        med_mod = find_median(df)
                         min_mod = deepcopy(df.loc[df.fitness.idxmin(), 'model'])
 
                         df['fitness2'] = df.model.apply(lambda x: abs(x.area_km2_ts()[2000] - ex_mod.area_km2_ts()[2000]) ** 2)
@@ -122,15 +132,16 @@ if __name__ == '__main__':
                         model_df.loc[gdir.rgi_id, 'fit2'] = deepcopy(df.loc[df.fitness2.idxmin(), 'model'])
                         model_df.loc[gdir.rgi_id, 'fit3'] = deepcopy(df.loc[df.fitness3.idxmin(), 'model'])
 
+
                         # time_df
                         time_df.loc[gdir.rgi_id, 'time'] = time.time()-start
 
                         try:
                             # plots
+                            plot_experiment(gdir, ex_mod, t_0, cfg.PATHS['plot_dir'])
                             plot_candidates(gdir, df, t_0, 'step3', cfg.PATHS['plot_dir'])
-                            plot_col_fitness_average(gdir, df, ex_mod, t_0, cfg.PATHS['plot_dir'])
-                            plot_median_average(gdir, df, 125, ex_mod, t_0, t_e, cfg.PATHS['plot_dir'])
-                            plot_compare_fitness(gdir, df, ex_mod, t_0, cfg.PATHS['plot_dir'])
+                            plot_fitness_values(gdir, df, ex_mod, t_0, cfg.PATHS['plot_dir'])
+                            plot_median(gdir, df, epsilon, ex_mod, t_0, t_e, cfg.PATHS['plot_dir'])
 
                         except:
                             pass
@@ -141,7 +152,6 @@ if __name__ == '__main__':
     if ON_CLUSTER:
         model_df.to_pickle(os.path.join(cfg.PATHS['working_dir'], 'models_'+str(job_nr)+'.pkl'), compression='gzip')
         time_df.to_pickle(os.path.join(cfg.PATHS['working_dir'], 'time_'+str(job_nr)+'.pkl'), compression='gzip')
-
     '''
     model_df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'models.pkl'), compression='gzip')
     time_df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'time.pkl'), compression='gzip')
@@ -162,4 +172,5 @@ if __name__ == '__main__':
     plot_relative_error(error1, error2, 'abs', cfg.PATHS['plot_dir'], all=True)
     plot_relative_error(error3, error4, 'rel', cfg.PATHS['plot_dir'], all=True)
     plot_relative_error(error5, error6, 'log', cfg.PATHS['plot_dir'], all=True)
+
     '''
