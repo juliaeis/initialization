@@ -41,7 +41,7 @@ def _run_parallel_experiment(gdir):
         fls = gdir.read_pickle('model_flowlines')
         # try to run random climate with temperature bias -1
 
-        model = tasks.run_random_climate(gdir, nyears=400, y0=1850, bias=0, seed=1,
+        model = tasks.run_random_climate(gdir, nyears=600, y0=1850, bias=0, seed=1,
                                          temperature_bias=-1,
                                          init_model_fls=fls)
 
@@ -121,7 +121,7 @@ def _run_random_task(tupel, gdir, y0):
     if not os.path.exists(path):
 
         try:
-            tasks.run_random_climate(gdir, nyears=400, y0=y0, bias=0,
+            tasks.run_random_climate(gdir, nyears=600, y0=y0, bias=0,
                                      seed=seed, temperature_bias=temp_bias,
                                      init_model_fls=copy.deepcopy(fls),
                                      output_filesuffix=suffix)
@@ -176,6 +176,10 @@ def identification(gdir, list, ys, ye, n):
                 i = i+1
             except:
                 pass
+
+    # make sure that t_stag is not close to the end
+    if t_stag>550:
+        t_stag = 550
 
     df = pd.DataFrame()
     for suffix in list['suffix']:
