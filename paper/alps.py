@@ -27,11 +27,11 @@ def find_median(df):
             index = int((l - 1) / 2)
         else:
             index = int(l / 2)
-        return deepcopy(quant_df.iloc[index].model)
+        return deepcopy(quant_df.iloc[index].model), quant_df.iloc[quant_df.length.idxmin()].model, quant_df.iloc[quant_df.length.idxmax()].model
 
     except:
 
-        return deepcopy(df.iloc[df.fitness.idxmin()].model)
+        return deepcopy(df.iloc[df.fitness.idxmin()].model), None, None
 
 
 if __name__ == '__main__':
@@ -119,7 +119,7 @@ if __name__ == '__main__':
                         df = find_possible_glaciers(gdir, t_0, t_e, 200)
                         df['fitness'] = df.fitness/125
 
-                        med_mod = find_median(df)
+                        med_mod, perc_min, perc_max = find_median(df)
                         min_mod = deepcopy(df.loc[df.fitness.idxmin(), 'model'])
 
                         df['fitness2'] = df.model.apply(lambda x: abs(x.area_km2_ts()[2000] - ex_mod.area_km2_ts()[2000]) ** 2)
@@ -129,6 +129,9 @@ if __name__ == '__main__':
                         model_df.loc[gdir.rgi_id, 'median'] = deepcopy(med_mod)
                         model_df.loc[gdir.rgi_id, 'minimum'] = deepcopy(min_mod)
                         model_df.loc[gdir.rgi_id, 'experiment'] = deepcopy(ex_mod)
+                        model_df.loc[gdir.rgi_id, 'flowline'] = deepcopy(gdir.read_pickle('model_flowlines'))
+                        model_df.loc[gdir.rgi_id, 'perc_min'] = deepcopy(perc_min)
+                        model_df.loc[gdir.rgi_id, 'perc_max'] = deepcopy(perc_max)
                         model_df.loc[gdir.rgi_id, 'fit2'] = deepcopy(df.loc[df.fitness2.idxmin(), 'model'])
                         model_df.loc[gdir.rgi_id, 'fit3'] = deepcopy(df.loc[df.fitness3.idxmin(), 'model'])
 
