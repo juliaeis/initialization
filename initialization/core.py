@@ -344,7 +344,7 @@ def evaluation(gdir, fls_list, y0, ye):
             fitness = fitness_value(fmod_t, emod_t, ye)
             df = df.append({'model': copy.deepcopy(fmod), 'fitness': fitness,
                             'temp_bias': float(f.split('_')[-2]),
-                            'time': f.split('_')[-1], 'volume': fmod.volume_m3},
+                            'time': f.split('_')[-1], 'volume': fmod.volume_km3},
                            ignore_index=True)
         except:
 

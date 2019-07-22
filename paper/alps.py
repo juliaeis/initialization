@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import salem
 import geopandas as gpd
 from oggm import cfg, workflow, utils
+from oggm.core.flowline import FluxBasedModel
 pd.options.mode.chained_assignment = None
 import time
 
@@ -129,7 +130,7 @@ if __name__ == '__main__':
                         model_df.loc[gdir.rgi_id, 'median'] = deepcopy(med_mod)
                         model_df.loc[gdir.rgi_id, 'minimum'] = deepcopy(min_mod)
                         model_df.loc[gdir.rgi_id, 'experiment'] = deepcopy(ex_mod)
-                        model_df.loc[gdir.rgi_id, 'flowline'] = deepcopy(gdir.read_pickle('model_flowlines'))
+                        model_df.loc[gdir.rgi_id, 'flowline'] = FluxBasedModel(flowlines=gdir.read_pickle('model_flowlines'))
                         model_df.loc[gdir.rgi_id, 'perc_min'] = deepcopy(perc_min)
                         model_df.loc[gdir.rgi_id, 'perc_max'] = deepcopy(perc_max)
                         model_df.loc[gdir.rgi_id, 'fit2'] = deepcopy(df.loc[df.fitness2.idxmin(), 'model'])
