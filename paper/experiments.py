@@ -124,4 +124,4 @@ if __name__ == '__main__':
 
     # experiments
     df =experiments(gdirs).set_index('rgi_id')
-    df.to_pickle(os.path.join(cfg.PATHS['working_dir'],'experiments.pkl'))
+    df.to_pickle(os.path.join(cfg.PATHS['working_dir'],'experiments.py.pkl'))
