@@ -49,11 +49,11 @@ if __name__ == '__main__':
     # Local paths
     if ON_CLUSTER:
         WORKING_DIR = os.environ.get("S_WORKDIR")
+        WORKING_DIR = '/home/users/julia/initialization/out/paper_correction/paper_600'
         cfg.PATHS['working_dir'] = WORKING_DIR
         job_nr = int(os.environ.get('I'))
     else:
-        #WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/600_paper_correction/'
-        WORKING_DIR = '/home/users/julia/initialization/out/paper_correction/paper_600'
+        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/600_paper_correction/'
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
 
@@ -132,6 +132,7 @@ if __name__ == '__main__':
 
                     print(med_mod.length_m)
                     print(min_mod.length_m)
+            print(time.time()-start)
 
     '''
 
