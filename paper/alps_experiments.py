@@ -53,6 +53,7 @@ def read_results(gdirs):
 
 def read_result_parallel(gdir):
     if os.path.isfile(os.path.join(gdir.dir, 'model_run_experiment.nc')):
+        print(gdir.rgi_id)
         start = time.time()
 
         rp = gdir.get_filepath('model_run', filesuffix='_experiment')
@@ -61,10 +62,14 @@ def read_result_parallel(gdir):
         if ex_mod.area_km2_ts()[2000] > 0.01:
             df = pd.read_pickle(os.path.join(gdir.dir,'result1850.pkl'), compression='gzip')
             df['fitness'] = df.fitness / 125
+            acc_df = df[df.fitness <=1]
+            v_min = acc_df.volume.min()
+            v_max = acc_df.volume.max()
+            ratio = 100*(v_max-v_min)/((v_min+v_max)/2)
             med_mod, perc_min, perc_max = find_median(df)
             min_mod = deepcopy(df.loc[df.fitness.idxmin(), 'model'])
 
-    return pd.Series({'rgi_id':gdir.rgi_id, 'minimum':min_mod,'median':med_mod})
+    return pd.Series({'rgi_id':gdir.rgi_id, 'minimum':min_mod,'median':med_mod, 'rel_range':ratio, 'accepted/tested': len(acc_df)/len(df)})
 
 
 if __name__ == '__main__':
@@ -116,7 +121,7 @@ if __name__ == '__main__':
     # RGI file
     path = utils.get_rgi_region_file('11', version='61')
     rgidf = gpd.read_file(path)
-    rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00897','RGI60-11.00779'])]
+    rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00897','RGI60-11.00779', 'RGI60-11.00029', 'RGI60-11.00036', 'RGI60-11.00001'])]
 
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=False)
@@ -125,7 +130,11 @@ if __name__ == '__main__':
     gdirs = workflow.init_glacier_regions(rgidf)
 
     df = read_results(gdirs)
-    print(df)
+    if ON_CLUSTER:
+        df.to_pickle(os.path.join(os.environ.get("S_WORKDIR"),'ratio.pkl'),compression='gzip')
+    else:
+        df.to_pickle(os.path.join(cfg.PATHS['working_dir'],'ratio.pkl'),compression='gzip')
+
 
     '''
 
