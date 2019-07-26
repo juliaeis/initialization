@@ -40,6 +40,32 @@ def find_median(df):
 
         return deepcopy(df.iloc[df.fitness.idxmin()].model), None, None
 
+def read_results(gdirs):
+
+    model_df = pd.DataFrame()
+    pool = mp.Pool()
+    list = pool.map(read_result_parallel, gdirs)
+    pool.close()
+    pool.join()
+    model_df = model_df.append(list, ignore_index=True)
+    return model_df
+
+
+def read_result_parallel(gdir):
+    if os.path.isfile(os.path.join(gdir.dir, 'model_run_experiment.nc')):
+        start = time.time()
+
+        rp = gdir.get_filepath('model_run', filesuffix='_experiment')
+        ex_mod = FileModel(rp)
+
+        if ex_mod.area_km2_ts()[2000] > 0.01:
+            df = pd.read_pickle(os.path.join(gdir.dir,'result1850.pkl'), compression='gzip')
+            df['fitness'] = df.fitness / 125
+            med_mod, perc_min, perc_max = find_median(df)
+            min_mod = deepcopy(df.loc[df.fitness.idxmin(), 'model'])
+
+    return pd.Series({'rgi_id':gdir.rgi_id, 'minimum':min_mod,'median':med_mod})
+
 
 if __name__ == '__main__':
     cfg.initialize()
@@ -51,7 +77,6 @@ if __name__ == '__main__':
         WORKING_DIR = os.environ.get("S_WORKDIR")
         WORKING_DIR = '/home/users/julia/initialization/out/paper_correction/paper_600'
         cfg.PATHS['working_dir'] = WORKING_DIR
-        job_nr = int(os.environ.get('I'))
     else:
         WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/600_paper_correction/'
         cfg.PATHS['working_dir'] = WORKING_DIR
@@ -91,48 +116,16 @@ if __name__ == '__main__':
     # RGI file
     path = utils.get_rgi_region_file('11', version='61')
     rgidf = gpd.read_file(path)
-    rgidf = rgidf[rgidf.RGIId == 'RGI60-11.00897']
+    rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00897','RGI60-11.00779'])]
 
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=False)
 
-    if ON_CLUSTER:
-        rgidf = rgidf[job_nr:len(rgidf):80]
 
     gdirs = workflow.init_glacier_regions(rgidf)
 
-    #preprocessing(gdirs)
-
-    # experiments.py
-    #synthetic_experiments_parallel(gdirs[:1])
-
-    t_0 = 1850
-    t_e = 2000
-    epsilon = 125
-
-    model_df = pd.DataFrame()
-    time_df = pd.DataFrame()
-
-
-    for gdir in gdirs:
-
-        if os.path.isfile(os.path.join(gdir.dir, 'model_run_experiment.nc')):
-            start = time.time()
-
-
-            rp = gdir.get_filepath('model_run', filesuffix='_experiment')
-            ex_mod = FileModel(rp)
-
-            if ex_mod.area_km2_ts()[2000] > 0.01:
-
-                    df = find_possible_glaciers(gdir, t_0, t_e, 200)
-                    df['fitness'] = df.fitness/125
-                    med_mod, perc_min, perc_max = find_median(df)
-                    min_mod = deepcopy(df.loc[df.fitness.idxmin(), 'model'])
-
-                    print(med_mod.length_m)
-                    print(min_mod.length_m)
-            print(time.time()-start)
+    df = read_results(gdirs)
+    print(df)
 
     '''
 
@@ -168,29 +161,4 @@ if __name__ == '__main__':
 
             except:
                 print(gdir.rgi_id+' failed')
-
-    if ON_CLUSTER:
-        model_df.to_pickle(os.path.join(cfg.PATHS['working_dir'], 'models_'+str(job_nr)+'.pkl'), compression='gzip')
-        time_df.to_pickle(os.path.join(cfg.PATHS['working_dir'], 'time_'+str(job_nr)+'.pkl'), compression='gzip')
-
-    model_df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'models.pkl'), compression='gzip')
-    time_df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'time.pkl'), compression='gzip')
-
-    median = model_df['median'].apply(lambda x: x.volume_km3_ts())
-    minimum = model_df['minimum'].apply(lambda x: x.volume_km3_ts())
-    experiment = model_df['experiment'].apply(lambda x: x.volume_km3_ts())
-
-    error1 = median-experiment
-    error2 = minimum-experiment
-
-    error3 = (median-experiment)/experiment
-    error4 = (minimum-experiment)/experiment
-
-    error5 = np.log(median/experiment)
-    error6 = np.log(minimum/experiment)
-
-    plot_relative_error(error1, error2, 'abs', cfg.PATHS['plot_dir'], all=True)
-    plot_relative_error(error3, error4, 'rel', cfg.PATHS['plot_dir'], all=True)
-    plot_relative_error(error5, error6, 'log', cfg.PATHS['plot_dir'], all=True)
-
     '''
