@@ -63,14 +63,11 @@ def read_result_parallel(gdir):
             df = pd.read_pickle(os.path.join(gdir.dir,'result1850.pkl'), compression='gzip')
             df['fitness'] = df.fitness / 125
             acc_df = df[df.fitness <=1]
-            v_min = acc_df.volume.min()
-            v_max = acc_df.volume.max()
-            ratio = 100*(v_max-v_min)/((v_min+v_max)/2)
             med_mod, perc_min, perc_max = find_median(df)
             min_mod = deepcopy(df.loc[df.fitness.idxmin(), 'model'])
 
-    return pd.Series({'rgi_id':gdir.rgi_id, 'minimum':min_mod,'median':med_mod, 'rel_range':ratio, 'accepted/tested': len(acc_df)/len(df)})
-
+    return pd.Series({'rgi_id':gdir.rgi_id, 'minimum':min_mod,'median':med_mod, 'reconstructability': 1-len(acc_df)/len(df), 'perc_min':perc_min,'perc_max':perc_max})
+    #return pd.Series({'rgi_id':gdir.rgi_id, 'v_min':v_min,'v_mac':v_max, 'range':v_max-v_min})
 
 if __name__ == '__main__':
     cfg.initialize()
@@ -134,6 +131,7 @@ if __name__ == '__main__':
         df.to_pickle(os.path.join(os.environ.get("S_WORKDIR"),'ratio.pkl'),compression='gzip')
     else:
         df.to_pickle(os.path.join(cfg.PATHS['working_dir'],'ratio.pkl'),compression='gzip')
+    print(df)
 
 
     '''
