@@ -62,7 +62,7 @@ def plot_experiment(gdir, ex_mod, ys, plot_dir):
     else:
         ax1.set_title(gdir.rgi_id)
 
-    # plot experiments
+    # plot experiments.py
     ex_mod = deepcopy(ex_mod)
     ex_mod.reset_y0(1850)
     ex_mod.run_until(ys)
@@ -239,7 +239,7 @@ def plot_surface(gdir, df, ex_mod, ys, plot_dir):
 
         ax2.plot(x, model.fls[-1].surface_h, color=color, label='')
 
-    # plot experiments
+    # plot experiments.py
     ex_mod = deepcopy(ex_mod)
     ex_mod.volume_m3_ts().plot(ax=ax3, color='red', linestyle=':', linewidth=3,
                                label='')
