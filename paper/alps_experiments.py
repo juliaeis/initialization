@@ -13,6 +13,7 @@ from oggm import cfg, workflow, utils
 from oggm.core.flowline import FluxBasedModel
 pd.options.mode.chained_assignment = None
 import time
+import matplotlib as mpl
 
 def find_median(df):
 
@@ -51,7 +52,40 @@ def read_results(gdirs):
     return model_df
 
 
+def plot_ratio_volume(df,ex_mod,gdir,ratio1, ratio2, ratio3):
+
+    fig, ax = plt.subplots(1,1, figsize=(10,7))
+    norm = mpl.colors.LogNorm(vmin=0.01 / 125, vmax=10)
+    cmap = mpl.cm.get_cmap('viridis')
+
+    # df = df.sort_values('objective', ascending=False)
+    df = df.sort_values('fitness', ascending=False)
+
+    for i, model in df['model'].iteritems():
+        try:
+
+            model = deepcopy(model)
+            color = cmap(norm(df.loc[i, 'fitness']))
+            model.volume_km3_ts().plot(ax=ax, color=[color], label='')
+        except:
+            pass
+    ex_mod.volume_km3_ts().plot(ax=ax, color='red', linestyle=':',
+                                linewidth=3,
+                                label='')
+    plt.title(gdir.rgi_id)
+    plt.text(1950,0.95*df.volume.max(), 'ratio1: '+str(ratio1.round(4)))
+    plt.text(1950, 0.85 * df.volume.max(), 'ratio2: ' + str(ratio2.round(4)))
+    plt.text(1950, 0.75 * df.volume.max(), 'ratio3: ' + str(ratio3.round(4)))
+    plt.ylabel('Volume (km$^3$)')
+    plt.ylabel('Volume (km$^3$)')
+    plt.xlabel('Time (years)')
+    utils.mkdir(os.path.join(cfg.PATHS['plot_dir'],'ratio'))
+    plt.savefig(os.path.join(cfg.PATHS['plot_dir'],'ratio',gdir.rgi_id+'.png'))
+    #plt.show()
+
 def read_result_parallel(gdir):
+
+
     if os.path.isfile(os.path.join(gdir.dir, 'model_run_experiment.nc')):
         print(gdir.rgi_id)
         start = time.time()
@@ -60,15 +94,32 @@ def read_result_parallel(gdir):
         ex_mod = FileModel(rp)
 
         if ex_mod.area_km2_ts()[2000] > 0.01:
-            df = pd.read_pickle(os.path.join(gdir.dir,'result1850.pkl'), compression='gzip')
-            df['fitness'] = df.fitness / 125
-            acc_df = df[df.fitness <=1]
-            med_mod, perc_min, perc_max = find_median(df)
-            min_mod = deepcopy(df.loc[df.fitness.idxmin(), 'model'])
 
-    return pd.Series({'rgi_id':gdir.rgi_id, 'minimum':min_mod,'median':med_mod, 'reconstructability': 1-len(acc_df)/len(df), 'perc_min':perc_min,'perc_max':perc_max})
+            df = pd.read_pickle(os.path.join(gdir.dir, 'result1850.pkl'),
+                                compression='gzip')
+            df.fitness = df.fitness / 125
+            # replace all values smaller than 1e-4
+            df.fitness[df.fitness < 1e-4] = 1e-4
+
+            m = df.fitness.min()
+            median = df.fitness.median()
+            q5 = df.fitness.quantile(0.1)
+
+            ratio1 = np.exp((1-(m / q5)) + (1-(q5 / median)))/np.exp(2)
+            ratio2 = 0.5*(1-(m / q5)) + 0.5*(1-(q5 / median))
+            ratio3 = 1-(m/q5)
+
+            plot_ratio_volume(df,ex_mod,gdir,ratio1, ratio2, ratio3)
+
+
+
+    return pd.Series({'rgi':gdir.rgi_id, 'min':m,'median':median,'q5':q5,
+                      'min/q5':m/q5,'q5/median':q5/median,
+                      'area':gdir.rgi_area_km2,'ratio1':ratio1,'ratio2':ratio2,
+                      'ratio3': ratio3})
     #return pd.Series({'rgi_id':gdir.rgi_id, 'v_min':v_min,'v_mac':v_max, 'range':v_max-v_min})
-
+    #except:
+    #   pass
 if __name__ == '__main__':
     cfg.initialize()
 
@@ -118,13 +169,35 @@ if __name__ == '__main__':
     # RGI file
     path = utils.get_rgi_region_file('11', version='61')
     rgidf = gpd.read_file(path)
-    rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00897','RGI60-11.00779', 'RGI60-11.00029', 'RGI60-11.00036', 'RGI60-11.00001'])]
+    #rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00897','RGI60-11.00779', 'RGI60-11.00029', 'RGI60-11.00036', 'RGI60-11.00001','RGI60-11.00026'])]
+
+
 
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=False)
 
 
     gdirs = workflow.init_glacier_regions(rgidf)
+    df = read_results(gdirs)
+    print(df)
+    '''
+
+        print(gdir.rgi_id)
+        print(len(df[df.fitness<1e-4]))
+        print(len(df[(df.fitness > 1e-4) & (df.fitness< 1e-3)]))
+        print(len(df[(df.fitness > 1e-3) & (df.fitness < 1e-2)]))
+        print(len(df[(df.fitness > 1e-2) & (df.fitness < 1e-1)]))
+        print(len(df[(df.fitness > 1e-1) & (df.fitness < 1e-0)]))
+        print(len(df[(df.fitness > 1e0) & (df.fitness < 1e1)]))
+        print(len(df[df.fitness > 1e1]))
+    plt.show()
+
+    df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'ratio.pkl'),
+                 compression='gzip')
+    ratio = df.dropna().reconstructability
+    ratio.plot.hist(bins=30)
+    plt.yscale('log')
+    plt.show()
 
     df = read_results(gdirs)
     if ON_CLUSTER:
@@ -134,7 +207,7 @@ if __name__ == '__main__':
     print(df)
 
 
-    '''
+
 
                         med_mod, perc_min, perc_max = find_median(df)
                         min_mod = deepcopy(df.loc[df.fitness.idxmin(), 'model'])
