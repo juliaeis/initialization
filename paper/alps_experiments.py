@@ -108,8 +108,8 @@ def read_result_parallel(gdir):
         ratio = (0.6)*(1-(min / q5)) + (0.3)*(1-(q5 / median))+(0.1)*(1-(median/max))
         '''
         acc_df = df[df.fitness<1]
-        perc_df = acc_df[acc_df.fitness <= acc_df.fitness.quantile(0.05)]
-        #print(perc_df.volume)
+        perc_df = acc_df[acc_df.fitness <= acc_df.fitness.quantile(0.05).round(4)]
+
         r1 =  acc_df.volume.max() - acc_df.volume.min()
         r2 =  perc_df.volume.max() - perc_df.volume.min()
 
@@ -187,18 +187,20 @@ if __name__ == '__main__':
     # RGI file
     path = utils.get_rgi_region_file('11', version='61')
     rgidf = gpd.read_file(path)
-    rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00897','RGI60-11.00779', 'RGI60-11.00029', 'RGI60-11.00036', 'RGI60-11.00001','RGI60-11.00026','RGI60-11.00062'])]
-
+    #rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00897','RGI60-11.00779', 'RGI60-11.00029', 'RGI60-11.00036', 'RGI60-11.00001','RGI60-11.00026','RGI60-11.00062'])]
+    rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00074'])]
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=False)
 
     gdirs = workflow.init_glacier_regions(rgidf)
     df = read_results(gdirs).dropna()
-    print(df)
+    #print(df)
     #df.to_pickle(os.path.join(cfg.PATHS['working_dir'],'ratio.pkl'),compression='gzip')
 
-    '''
+
     df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'],'ratio.pkl'),compression='gzip')
+
+    '''
     df = df.drop('rgi_id',axis=1).dropna()
 
     #for i, col in enumerate(df.drop(['rgi','ratio'],axis=1)):
