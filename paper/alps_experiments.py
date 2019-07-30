@@ -9,11 +9,13 @@ from plots_paper import *
 import matplotlib.pyplot as plt
 import salem
 import geopandas as gpd
-from oggm import cfg, workflow, utils
+from oggm import cfg, workflow, utils, tasks
 from oggm.core.flowline import FluxBasedModel
 pd.options.mode.chained_assignment = None
 import time
 import matplotlib as mpl
+import xarray as xr
+
 
 def find_median(df):
 
@@ -52,7 +54,7 @@ def read_results(gdirs):
     return model_df
 
 
-def plot_ratio_volume(df,ex_mod,gdir,ratio1, ratio2, ratio3):
+def plot_ratio_volume(df,ex_mod,gdir, ratio2):
 
     fig, ax = plt.subplots(1,1, figsize=(10,7))
     norm = mpl.colors.LogNorm(vmin=0.01 / 125, vmax=10)
@@ -73,9 +75,9 @@ def plot_ratio_volume(df,ex_mod,gdir,ratio1, ratio2, ratio3):
                                 linewidth=3,
                                 label='')
     plt.title(gdir.rgi_id)
-    plt.text(1950,0.95*df.volume.max(), 'ratio1: '+str(ratio1.round(4)))
-    plt.text(1950, 0.85 * df.volume.max(), 'ratio2: ' + str(ratio2.round(4)))
-    plt.text(1950, 0.75 * df.volume.max(), 'ratio3: ' + str(ratio3.round(4)))
+
+    plt.text(1950, 0.95 * df.volume.max(), 'ratio2: ' + str(ratio2.round(4)))
+
     plt.ylabel('Volume (km$^3$)')
     plt.ylabel('Volume (km$^3$)')
     plt.xlabel('Time (years)')
@@ -85,41 +87,43 @@ def plot_ratio_volume(df,ex_mod,gdir,ratio1, ratio2, ratio3):
 
 def read_result_parallel(gdir):
 
-
-    if os.path.isfile(os.path.join(gdir.dir, 'model_run_experiment.nc')):
-        print(gdir.rgi_id)
-        start = time.time()
-
+    try:
         rp = gdir.get_filepath('model_run', filesuffix='_experiment')
         ex_mod = FileModel(rp)
 
-        if ex_mod.area_km2_ts()[2000] > 0.01:
+        df = pd.read_pickle(os.path.join(gdir.dir, 'result1850.pkl'),
+                            compression='gzip')
+        df.fitness = df.fitness / 125
+        # replace all values smaller than 1e-4
+        df.fitness[df.fitness < 1e-4] = 1e-4
 
-            df = pd.read_pickle(os.path.join(gdir.dir, 'result1850.pkl'),
-                                compression='gzip')
-            df.fitness = df.fitness / 125
-            # replace all values smaller than 1e-4
-            df.fitness[df.fitness < 1e-4] = 1e-4
+        min = df.fitness.min()
+        max = df.fitness.max()
+        median = df.fitness.median()
+        q5 = df.fitness.quantile(0.1)
+        #print(gdir.rgi_id,median, max,(1-(median/max)))
 
-            m = df.fitness.min()
-            median = df.fitness.median()
-            q5 = df.fitness.quantile(0.1)
+        ratio = (0.6)*(1-(min / q5)) + (0.3)*(1-(q5 / median))+(0.1)*(1-(median/max))
+        plot_ratio_volume(df,ex_mod,gdir, ratio)
+        inv_in = gdir.read_pickle('inversion_input')
+        slope = []
+        for i in range(len(inv_in)):
+            slope.extend(inv_in[-1]['slope_angle'])
 
-            ratio1 = np.exp((1-(m / q5)) + (1-(q5 / median)))/np.exp(2)
-            ratio2 = 0.5*(1-(m / q5)) + 0.5*(1-(q5 / median))
-            ratio3 = 1-(m/q5)
+        ds = xr.open_dataset(gdir.get_filepath('model_diagnostics', filesuffix='_experiment'))
+        diag = ds.to_dataframe()
 
-            plot_ratio_volume(df,ex_mod,gdir,ratio1, ratio2, ratio3)
+        return pd.Series({'rgi':gdir.rgi_id, 'ratio':ratio,
+                          'length':ex_mod.length_m_ts()[2000],
+                          'area':ex_mod.area_km2_ts()[2000],
+                          'volume':ex_mod.volume_km3_ts()[2000],
+                          'slope_max':np.max(slope), 'slope_mean':np.mean(slope),
+                          'ela_2000':diag.ela_m[2000],
+                          'ela_change':diag.ela_m[1850]/diag.ela_m[2000]})
 
+    except:
+        return pd.Series({'rgi_id':gdir.rgi_id})
 
-
-    return pd.Series({'rgi':gdir.rgi_id, 'min':m,'median':median,'q5':q5,
-                      'min/q5':m/q5,'q5/median':q5/median,
-                      'area':gdir.rgi_area_km2,'ratio1':ratio1,'ratio2':ratio2,
-                      'ratio3': ratio3})
-    #return pd.Series({'rgi_id':gdir.rgi_id, 'v_min':v_min,'v_mac':v_max, 'range':v_max-v_min})
-    #except:
-    #   pass
 if __name__ == '__main__':
     cfg.initialize()
 
@@ -169,18 +173,33 @@ if __name__ == '__main__':
     # RGI file
     path = utils.get_rgi_region_file('11', version='61')
     rgidf = gpd.read_file(path)
-    #rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00897','RGI60-11.00779', 'RGI60-11.00029', 'RGI60-11.00036', 'RGI60-11.00001','RGI60-11.00026'])]
-
-
+    rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00897','RGI60-11.00779', 'RGI60-11.00029', 'RGI60-11.00036', 'RGI60-11.00001','RGI60-11.00026','RGI60-11.00062'])]
 
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=False)
 
-
     gdirs = workflow.init_glacier_regions(rgidf)
-    df = read_results(gdirs)
+    df = read_results(gdirs).dropna()
     print(df)
+    #df.to_pickle(os.path.join(cfg.PATHS['working_dir'],'ratio.pkl'),compression='gzip')
+
     '''
+    df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'],'ratio.pkl'),compression='gzip')
+    fig,ax = plt.subplots(1,1)
+    #df.plot.scatter(x='ratio1',y='area',color='C0',ax=ax,label='ratio1')
+    df.plot.scatter(x='ratio2', y='area',color='C1',ax=ax,label='ratio2')
+    plt.xlabel('reconstructability')
+    plt.ylabel('Glacier Area (km²)')
+
+    fig, ax = plt.subplots(1, 1)
+    # df.plot.scatter(x='ratio1',y='area',color='C0',ax=ax,label='ratio1')
+    df.plot.scatter(x='ratio3', y='area', color='C2', ax=ax, label='ratio3')
+
+    plt.xlabel('reconstructability')
+    plt.ylabel('Glacier Area (km²)')
+    #plt.show()
+
+
 
         print(gdir.rgi_id)
         print(len(df[df.fitness<1e-4]))
