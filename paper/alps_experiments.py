@@ -16,32 +16,35 @@ import time
 import matplotlib as mpl
 import xarray as xr
 
+mpl.rcParams['axes.linewidth'] = 3
+mpl.rcParams['xtick.major.width'] = 3
+mpl.rcParams['ytick.major.width'] = 3
+mpl.rcParams['font.size'] =20
+mpl.rcParams['font.weight'] = 'medium'
+mpl.rcParams['axes.labelweight'] = 'medium'
+mpl.rcParams['legend.fontsize'] = 20 #30
+mpl.rcParams['lines.linewidth'] = 3
+
+
 
 def find_median(df):
 
 
     try:
         accept_df = df[df.fitness <= 1]
-
         quant_df = accept_df[accept_df.fitness <= accept_df.fitness.quantile(0.05)]
-
         # median state
         quant_df.loc[:, 'length'] = quant_df.model.apply(lambda x: x.length_m)
-
         quant_df = quant_df.sort_values('length', ascending=False)
-
         l = len(quant_df)
-
         if l % 2:
             index = int((l - 1) / 2)
         else:
             index = int(l / 2)
-
         return deepcopy(quant_df.iloc[index].model), quant_df.at[quant_df.length.idxmin(),'model'], quant_df.at[quant_df.length.idxmax(),'model']
-
     except:
-
         return deepcopy(df.iloc[df.fitness.idxmin()].model), None, None
+
 
 def read_results(gdirs):
 
@@ -83,7 +86,7 @@ def plot_ratio_volume(df,ex_mod,gdir, ratio2):
     plt.xlabel('Time (years)')
     utils.mkdir(os.path.join(cfg.PATHS['plot_dir'],'ratio'))
     plt.savefig(os.path.join(cfg.PATHS['plot_dir'],'ratio',gdir.rgi_id+'.png'))
-    #plt.show()
+    plt.show()
 
 def read_result_parallel(gdir):
 
@@ -97,14 +100,23 @@ def read_result_parallel(gdir):
         # replace all values smaller than 1e-4
         df.fitness[df.fitness < 1e-4] = 1e-4
 
+        '''
         min = df.fitness.min()
         max = df.fitness.max()
         median = df.fitness.median()
-        q5 = df.fitness.quantile(0.1)
-        #print(gdir.rgi_id,median, max,(1-(median/max)))
-
+        q5 = df.fitness.quantile(0.05)
         ratio = (0.6)*(1-(min / q5)) + (0.3)*(1-(q5 / median))+(0.1)*(1-(median/max))
+        '''
+        acc_df = df[df.fitness<1]
+        perc_df = acc_df[acc_df.fitness <= acc_df.fitness.quantile(0.05)]
+        #print(perc_df.volume)
+        r1 =  acc_df.volume.max() - acc_df.volume.min()
+        r2 =  perc_df.volume.max() - perc_df.volume.min()
+
+        ratio = 1-(r2/r1)
+
         plot_ratio_volume(df,ex_mod,gdir, ratio)
+
         inv_in = gdir.read_pickle('inversion_input')
         slope = []
         for i in range(len(inv_in)):
@@ -121,8 +133,10 @@ def read_result_parallel(gdir):
                           'ela_2000':diag.ela_m[2000],
                           'ela_change':diag.ela_m[1850]/diag.ela_m[2000]})
 
+        return pd.Series({'rgi':gdir.rgi_id})
+
     except:
-        return pd.Series({'rgi_id':gdir.rgi_id})
+        return pd.Series({'rgi':gdir.rgi_id})
 
 if __name__ == '__main__':
     cfg.initialize()
@@ -185,9 +199,29 @@ if __name__ == '__main__':
 
     '''
     df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'],'ratio.pkl'),compression='gzip')
+    df = df.drop('rgi_id',axis=1).dropna()
+
+    #for i, col in enumerate(df.drop(['rgi','ratio'],axis=1)):
+        #fig, ax = plt.subplots(1, 1)
+        #df.plot.scatter(x=col,y='ratio',ax=ax)
+    #plt.show()
+    df = df[['rgi','ratio','length','area','volume','ela_2000','ela_change', 'slope_max','slope_mean']]
+
+    fig,ax = plt.subplots(1,1,figsize=(10,15))
+    print(df.corr()['ratio'])
+    matrix = ax.matshow(df.drop('rgi',axis=1).corr(),vmin=-1,vmax=1, cmap='RdBu_r')
+    print(matrix)
+    marks = ['measure', 'Lenght', 'Area','Volume', r'ELA$_{2000}$', r'ELA$_{1850}$/ELA$_{2000}$',
+              r'Slope$_{max}$', r'Slope$_{mean}$']
+    tick_marks = [i for i in range(len(df.drop('rgi',axis=1).columns))]
+    plt.xticks(tick_marks, marks, rotation='vertical')
+    plt.yticks(tick_marks, marks)
+    plt.colorbar(matrix,fraction=0.046, pad=0.04)
+    plt.tight_layout()
+    plt.show()
+
     fig,ax = plt.subplots(1,1)
-    #df.plot.scatter(x='ratio1',y='area',color='C0',ax=ax,label='ratio1')
-    df.plot.scatter(x='ratio2', y='area',color='C1',ax=ax,label='ratio2')
+    df.plot.scatter(x='ratio2', y='area',color='C1',ax=ax,label='ratio')
     plt.xlabel('reconstructability')
     plt.ylabel('Glacier Area (km²)')
 
