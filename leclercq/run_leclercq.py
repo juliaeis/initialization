@@ -236,18 +236,23 @@ if __name__ == '__main__':
     rgidf = rgidf.sort_values('Area', ascending=True)
     gdirs = workflow.init_glacier_regions(rgidf)
 
-    preprocessing(gdirs)
-    advanced_experiments(gdirs)
+    #preprocessing(gdirs)
+    #advanced_experiments(gdirs)
 
     if ON_CLUSTER:
-        df = pd.read_pickle('11_advanced_experiments.pkl')
+        p = '11_advanced_experiments.pkl'
+        print(os.path.isfile(p))
+        df = pd.read_pickle(p)
     else:
-        df = pd.read_pickle('11_advanced_experiments.pkl')
+        p = '11_advanced_experiments.pkl'
+        df = pd.read_pickle(p)
+
     df = df.set_index('rgi_id')
     df.fitness = df.fitness/125
+    print(df)
 
+    for gdir in gdirs[:1]:
 
-    for gdir in gdirs:
         if df.loc[gdir.rgi_id].fitness<1:
             bias = df.loc[gdir.rgi_id].bias
             ex_mod = df.loc[gdir.rgi_id].model
