@@ -10,10 +10,11 @@ from oggm import cfg, utils, workflow, tasks
 from oggm.utils._downloads import get_demo_file
 from oggm.core.flowline import FluxBasedModel
 import oggm
-
+from leclercq.leclercq_plots import *
 sys.path.append('../')
 sys.path.append('../../')
 from  initialization.core import *
+
 
 
 
@@ -230,11 +231,35 @@ if __name__ == '__main__':
 
     # only the ones with leclercq observation
     rgidf = rgidf[rgidf.RGIId.isin(lec[lec.REGION=='11'].RGI_ID.values)]
+    #rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.03229'])]
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=True)
-    gdirs = workflow.init_glacier_regions(rgidf)[:8]
+    gdirs = workflow.init_glacier_regions(rgidf)
 
     preprocessing(gdirs)
     advanced_experiments(gdirs)
+
+    if ON_CLUSTER:
+        df = pd.read_pickle(os.path.join('/home/users/julia/initialization/out/leclercq/',
+                                         '11_advanced_experiments.pkl'))
+    else:
+        df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'],'11_advanced_experiments.pkl'))
+    df = df.set_index('rgi_id')
+    df.fitness = df.fitness/125
+
+
+    for gdir in gdirs:
+        if df.loc[gdir.rgi_id].fitness<1:
+            bias = df.loc[gdir.rgi_id].bias
+            ex_mod = df.loc[gdir.rgi_id].model
+
+            ini_df = find_possible_glaciers(gdir, 1917, 2016, 200, ex_mod, bias)
+            ini_df.fitness = ini_df.fitness/125
+
+            lec = get_ref_length_data(gdir).dL
+            lec = (lec -lec.iloc[-1]) + ex_mod.length_m_ts()[lec.index[-1]]
+
+            plot_fitness_values(gdir, df, ex_mod, 1917, 2016, lec, cfg.PATHS['plot_dir'])
+            plot_median(gdir, df, 125, ex_mod, 1917, 2016,lec, cfg.PATHS['plot_dir'])
 
 

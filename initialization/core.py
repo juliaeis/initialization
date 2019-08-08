@@ -56,7 +56,7 @@ def _run_parallel_experiment(gdir):
         print('experiment failed : ' + str(gdir.rgi_id))
 
 
-def _run_to_present(tupel, gdir, ys, ye):
+def _run_to_present(tupel, gdir, ys, ye, bias):
     """
     Run glacier candidates forwards.
     """
@@ -66,7 +66,7 @@ def _run_to_present(tupel, gdir, ys, ye):
     # does file already exists?
     if not os.path.exists(path):
         try:
-            tasks.run_from_climate_data(gdir, ys=ys, ye=ye,
+            tasks.run_from_climate_data(gdir, ys=ys, ye=ye, bias=bias,
                                         output_filesuffix=suffix,
                                         init_model_fls=copy.deepcopy(
                                         tupel[1].fls))
@@ -84,13 +84,13 @@ def _run_to_present(tupel, gdir, ys, ye):
             return None
 
 
-def _run_random_parallel(gdir, y0, list):
+def _run_random_parallel(gdir, y0, list, bias):
 
     """
     Parallelize the run_random_task.
     """
     pool = Pool()
-    paths = pool.map(partial(_run_random_task, gdir=gdir, y0=y0), list)
+    paths = pool.map(partial(_run_random_task, gdir=gdir, y0=y0, bias=bias), list)
     pool.close()
     pool.join()
 
@@ -106,7 +106,7 @@ def _run_random_parallel(gdir, y0, list):
     return random_run_list
 
 
-def _run_random_task(tupel, gdir, y0):
+def _run_random_task(tupel, gdir, y0, bias):
     """
     Run random model to create lots of possible states
     """
@@ -121,7 +121,7 @@ def _run_random_task(tupel, gdir, y0):
     if not os.path.exists(path):
 
         try:
-            tasks.run_random_climate(gdir, nyears=600, y0=y0, bias=0,
+            tasks.run_random_climate(gdir, nyears=400, y0=y0, bias=bias,
                                      seed=seed, temperature_bias=temp_bias,
                                      init_model_fls=copy.deepcopy(fls),
                                      output_filesuffix=suffix)
@@ -224,7 +224,7 @@ def identification(gdir, list, ys, ye, n):
     return fls_list
 
 
-def find_possible_glaciers(gdir, y0, ye, n):
+def find_possible_glaciers(gdir, y0, ye, n, ex_mod=None, bias=0):
 
     path = os.path.join(gdir.dir, 'result' + str(y0) + '.pkl')
 
@@ -235,7 +235,7 @@ def find_possible_glaciers(gdir, y0, ye, n):
 
     # 1. Generation of possible glacier states
     #    - Run random climate over 400 years with different temperature biases
-    random_list = generation(gdir, y0)
+    random_list = generation(gdir, y0, bias)
 
     # 2. Identification of glacier candidates
     #    - Determine t_stag(begin of stagnation period)
@@ -249,7 +249,7 @@ def find_possible_glaciers(gdir, y0, ye, n):
     #    - Evaluate candidates based on the fitnessfunction
     #    - Save all models in pd.DataFrame and write pickle
     #    - copy all model_run files to tarfile
-    results = evaluation(gdir, candidate_list, y0, ye)
+    results = evaluation(gdir, candidate_list, y0, ye, ex_mod, bias)
 
     # move all model_run* files from year y0 to a new directory --> avoids
     # that thousand of thousands files are created in gdir.dir
@@ -264,7 +264,7 @@ def find_possible_glaciers(gdir, y0, ye, n):
     return results
 
 
-def generation(gdir, y0):
+def generation(gdir, y0, bias):
 
     """
     creates a pandas.DataFrame() with ALL created states. A subset of them will
@@ -277,14 +277,14 @@ def generation(gdir, y0):
     # try range (2,-3) first  --> 100 runs
     bias_list = [b.round(3) for b in np.arange(-3, 2, 0.05)]
     list = [(i ** 2, b) for i, b in enumerate(bias_list)]
-    random_run_list = _run_random_parallel(gdir, y0, list)
+    random_run_list = _run_random_parallel(gdir, y0, list, bias)
 
     # if temp bias = -3 does not create a glacier that exceeds boundary, we test further up to -5
     if random_run_list['temp_bias'].min() == -3:
         n = len(random_run_list)
         bias_list = [b.round(3) for b in np.arange(-5, -3, 0.05)]
         list = [((i+n+1) ** 2, b) for i, b in enumerate(bias_list)]
-        random_run_list = random_run_list.append(_run_random_parallel(gdir, y0, list), ignore_index=True)
+        random_run_list = random_run_list.append(_run_random_parallel(gdir, y0, list, bias), ignore_index=True)
 
     # check for zero glacier
     max_bias = random_run_list['temp_bias'].idxmax()
@@ -298,12 +298,12 @@ def generation(gdir, y0):
     if not fmod.volume_m3_ts().min() == 0:
         n = len(random_run_list)
         list = [((i + n + 1) ** 2, b.round(3)) for i, b in enumerate(np.arange(2.05, 3, 0.05))]
-        random_run_list = random_run_list.append(_run_random_parallel(gdir, y0, list), ignore_index=True)
+        random_run_list = random_run_list.append(_run_random_parallel(gdir, y0, list, bias), ignore_index=True)
     random_run_list = random_run_list.sort_values(by='temp_bias')
     return random_run_list
 
 
-def evaluation(gdir, fls_list, y0, ye):
+def evaluation(gdir, fls_list, y0, ye, emod, bias):
     """
     Creates a pd.DataFrame() containing all tested glaciers candidates in year
     yr. Read all "model_run+str(yr)+_past*.nc" files in gdir.dir
@@ -317,16 +317,17 @@ def evaluation(gdir, fls_list, y0, ye):
     # run candidates until present
     pool = Pool()
     suffix_list = pool.map(partial(_run_to_present, gdir=gdir, ys=y0,
-                                 ye=ye), fls_list)
+                                 ye=ye, bias=bias), fls_list)
     pool.close()
     pool.join()
 
     df = pd.DataFrame()
     prefix = 'model_run'+str(y0)+'_past'
 
-    # read experiment
-    ep = gdir.get_filepath('model_run', filesuffix='_experiment')
-    emod = FileModel(ep)
+    if emod is None:
+        # read experiment
+        ep = gdir.get_filepath('model_run', filesuffix='_experiment')
+        emod = FileModel(ep)
     emod_t = copy.deepcopy(emod)
     emod_t.run_until(ye)
 
