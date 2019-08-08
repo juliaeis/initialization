@@ -240,10 +240,9 @@ if __name__ == '__main__':
     advanced_experiments(gdirs)
 
     if ON_CLUSTER:
-        df = pd.read_pickle(os.path.join('/home/users/julia/initialization/out/leclercq/',
-                                         '11_advanced_experiments.pkl'))
+        df = pd.read_pickle('11_advanced_experiments.pkl')
     else:
-        df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'],'11_advanced_experiments.pkl'))
+        df = pd.read_pickle('11_advanced_experiments.pkl')
     df = df.set_index('rgi_id')
     df.fitness = df.fitness/125
 
