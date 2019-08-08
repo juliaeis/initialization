@@ -1,5 +1,6 @@
 
 import os
+import sys
 import pandas as pd
 import geopandas as gpd
 import xarray as xr
@@ -8,8 +9,12 @@ import matplotlib.pyplot as plt
 from oggm import cfg, utils, workflow, tasks
 from oggm.utils._downloads import get_demo_file
 from oggm.core.flowline import FluxBasedModel
-from  initialization.core import *
 import oggm
+
+sys.path.append('../')
+sys.path.append('../../')
+from  initialization.core import *
+
 
 
 def fitness_function(model1, model2):
