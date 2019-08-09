@@ -161,7 +161,7 @@ def get_ref_length_data(gdir):
     return df
 
 
-def advanced_experiments(gdirs):
+def advanced_experiments(gdirs, region):
     exp_df = pd.DataFrame()
 
     pool = Pool()
@@ -170,10 +170,11 @@ def advanced_experiments(gdirs):
     pool.join()
 
     exp_df = exp_df.append(list, ignore_index=True)
-    exp_df.to_pickle(
-        os.path.join(cfg.PATHS['working_dir'], '11_advanced_experiments.pkl'))
+    p = os.path.join(cfg.PATHS['working_dir'], str(region)+'_advanced_experiments.pkl')
+    #exp_df.to_pickle(
+    #    os.path.join(cfg.PATHS['working_dir'], '11_advanced_experiments.pkl'))
 
-
+    return p
 if __name__ == '__main__':
 
     cfg.initialize()
@@ -245,11 +246,12 @@ if __name__ == '__main__':
     gdirs = workflow.init_glacier_regions(rgidf)
 
     preprocessing(gdirs)
-    p =advanced_experiments(gdirs)
+    p =advanced_experiments(gdirs, REGION)
 
     df = pd.read_pickle(p)
     df = df.set_index('rgi_id')
     df.fitness = df.fitness/125
+    print(df)
 
     for gdir in gdirs:
 

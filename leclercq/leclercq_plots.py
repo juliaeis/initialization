@@ -225,6 +225,10 @@ def plot_median(gdir, df, eps, ex_mod, ys, ye, lec, plot_dir):
                                 linewidth=3, label=r'$s_{'+str(ys)+'-'+str(ye)+'}^{min}$')
     min_mod.reset_y0(ys)
     min_mod.run_until(ys)
+    # real flowlines
+    fls = gdir.read_pickle('model_flowlines')
+    mod = FluxBasedModel(flowlines=fls)
+    ax2.plot(x, mod.fls[-1].surface_h, 'C2', label=r'OGGM$_{init}$')
 
     ax1.plot(x, min_mod.fls[-1].surface_h, 'C1', label=r'$z_{'+str(ys)+'}^{min}$',
              linewidth=3)
@@ -234,11 +238,14 @@ def plot_median(gdir, df, eps, ex_mod, ys, ye, lec, plot_dir):
     ax2.plot(x, min_mod.fls[-1].surface_h, 'C1', label=r'$z_{2000}^{min}$',
              linewidth=3)
 
-    # experiment
 
+
+    # experiment
     lec.plot(ax=ax3, color='r', linewidth=3, label='Leclercq')
     ax1.plot(x, ex_mod.fls[-1].bed_h, 'k', label=r'$b$', linewidth=3)
     ax2.plot(x, ex_mod.fls[-1].bed_h, 'k', label=r'$b$', linewidth=3)
+
+
 
 
     # add figure names and x-/ylabels
