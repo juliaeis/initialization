@@ -14,6 +14,7 @@ from leclercq.leclercq_plots import *
 sys.path.append('../')
 sys.path.append('../../')
 from  initialization.core import *
+import copy
 
 
 
@@ -69,7 +70,7 @@ def _run_experiment(gdir, bias):
             # construct observed glacier, previous glacier will be run forward from
             # 1917 - 2000 with past climate file
 
-            fls = copy.deepcopy(model.fls)
+            fls = deepcopy(model.fls)
             model = tasks.run_from_climate_data(gdir, ys=1917, ye=2016, init_model_fls=fls,bias=bias,
                                         output_filesuffix='_advanced_experiment_'+str(bias))
         except:
@@ -178,11 +179,13 @@ if __name__ == '__main__':
     cfg.initialize()
 
     ON_CLUSTER = False
+    REGION = '11'
 
     # Local paths
     if ON_CLUSTER:
         WORKING_DIR = os.environ.get("S_WORKDIR")
         cfg.PATHS['working_dir'] = WORKING_DIR
+        REGION = str(os.environ.get('I')).zfill(2)
     else:
         WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/leclercq'
         cfg.PATHS['working_dir'] = WORKING_DIR
@@ -200,6 +203,10 @@ if __name__ == '__main__':
     # Set to True for operational runs
     cfg.PARAMS['continue_on_error'] = True
 
+    cfg.PARAMS['run_mb_calibration'] = False
+    cfg.PARAMS['optimize_inversion_params'] = False
+    cfg.PARAMS['dl_verify'] = False
+
     '''
     # Use HISTALP climate file
     cfg.PARAMS['baseline_climate'] = 'HISTALP'
@@ -214,56 +221,48 @@ if __name__ == '__main__':
     _doc = 'contains observed and searched glacier from synthetic experiment to find intial state'
     cfg.BASENAMES['synthetic_experiment'] = ('synthetic_experiment.pkl', _doc)
 
-    # We use intersects
-    db = utils.get_rgi_intersects_region_file(version='61', region='11')
-    cfg.set_intersects_db(db)
-
-    cfg.PARAMS['run_mb_calibration'] = False
-    cfg.PARAMS['optimize_inversion_params'] = False
-
-    # RGI file
-    path = utils.get_rgi_region_file('11', version='61')
-    rgidf = gpd.read_file(path)
-
     # read leclercq links
     lec = pd.read_csv('rgi_leclercq_links_2014_RGIV6.csv')
     lec['REGION'] = lec.RGI_ID.apply(lambda x: x.split('-')[-1].split('.')[0])
 
+
+
+    # We use intersects
+    db = utils.get_rgi_intersects_region_file(version='61', region=REGION)
+    cfg.set_intersects_db(db)
+
+    # RGI file
+    path = utils.get_rgi_region_file(REGION, version='61')
+    rgidf = gpd.read_file(path)
+
     # only the ones with leclercq observation
-    rgidf = rgidf[rgidf.RGIId.isin(lec[lec.REGION=='11'].RGI_ID.values)]
-    #rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.03229'])]
+    rgidf = rgidf[rgidf.RGIId.isin(lec[lec.REGION==REGION].RGI_ID.values)]
+    rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00003'])]
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=True)
+
+    print(REGION, len(rgidf))
     gdirs = workflow.init_glacier_regions(rgidf)
 
-    #preprocessing(gdirs)
-    #advanced_experiments(gdirs)
+    preprocessing(gdirs)
+    p =advanced_experiments(gdirs)
 
-    if ON_CLUSTER:
-        p = '11_advanced_experiments.pkl'
-        print(os.path.isfile(p))
-        df = pd.read_pickle(p)
-    else:
-        p = '11_advanced_experiments.pkl'
-        df = pd.read_pickle(p)
-
+    df = pd.read_pickle(p)
     df = df.set_index('rgi_id')
     df.fitness = df.fitness/125
-    print(df)
 
-    for gdir in gdirs[:1]:
+    for gdir in gdirs:
 
-        if df.loc[gdir.rgi_id].fitness<1:
-            bias = df.loc[gdir.rgi_id].bias
-            ex_mod = df.loc[gdir.rgi_id].model
+        bias = df.loc[gdir.rgi_id].bias
+        ex_mod = df.loc[gdir.rgi_id].model
 
-            ini_df = find_possible_glaciers(gdir, 1917, 2016, 200, ex_mod, bias)
-            ini_df.fitness = ini_df.fitness/125
+        ini_df = find_possible_glaciers(gdir, 1917, 2016, 200, ex_mod, bias)
+        ini_df.fitness = ini_df.fitness/125
 
-            lec = get_ref_length_data(gdir).dL
-            lec = (lec -lec.iloc[-1]) + ex_mod.length_m_ts()[lec.index[-1]]
+        lec = get_ref_length_data(gdir).dL
+        lec = (lec -lec.iloc[-1]) + ex_mod.length_m_ts(rollmin=5)[lec.index[-1]]
 
-            plot_fitness_values(gdir, df, ex_mod, 1917, 2016, lec, cfg.PATHS['plot_dir'])
-            plot_median(gdir, df, 125, ex_mod, 1917, 2016,lec, cfg.PATHS['plot_dir'])
+        plot_fitness_values(gdir, ini_df, ex_mod, 1917, 2016, lec, cfg.PATHS['plot_dir'])
+        plot_median(gdir, ini_df, 125, ex_mod, 1917, 2016,lec, cfg.PATHS['plot_dir'])
 
 

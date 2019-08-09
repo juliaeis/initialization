@@ -3,6 +3,7 @@
 #SBATCH --job-name=leclerce_experiments
 #SBATCH --partition=main
 #SBATCH --exclusive
+#SBATCH --array=11
 
 # Abort whenever a single step fails. Without this, bash will just continue on errors.
 #set -e
@@ -20,6 +21,9 @@ S_WORKDIR="/work/$SLURM_JOB_USER/leclercq"
 
 mkdir -p "$S_WORKDIR"
 echo "Workdir for this run: $S_WORKDIR"
+
+echo "$SLURM_ARRAY_TASK_ID"
+I=$SLURM_ARRAY_TASK_ID
 
 # Export the WORKDIR as environment variable so our benchmark script can use it to find its working $
 export S_WORKDIR

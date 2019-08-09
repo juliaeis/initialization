@@ -257,7 +257,7 @@ def plot_median(gdir, df, eps, ex_mod, ys, ye, lec, plot_dir):
     ax2.tick_params(axis='both', which='major', labelsize=30)
     ax3.tick_params(axis='both', which='major', labelsize=30)
     ax3.yaxis.offsetText.set_fontsize(30)
-    ax3.set_xlim(xmin=1915, xmax=2003)
+    ax3.set_xlim(xmin=1915, xmax=2019)
 
     l1 = ax1.legend(loc=1, fontsize=25)
     l1.set_zorder(1)
@@ -271,5 +271,5 @@ def plot_median(gdir, df, eps, ex_mod, ys, ye, lec, plot_dir):
     fig_name = 'median_'+str(ys)+'_'+gdir.rgi_id
     plt.savefig(os.path.join(plot_dir, fig_name+'.pdf'), dpi=300)
     plt.savefig(os.path.join(plot_dir, fig_name+'.png'), dpi=300)
-    #plt.show()
+    plt.show()
     plt.close()
