@@ -351,7 +351,7 @@ def evaluation(gdir, fls_list, y0, ye, emod, bias):
 
             df = df.append({'model': None, 'fitness': None,
                             'temp_bias': float(f.split('_')[-2]),
-                            'time': f.split('_')[-1], 'volume': None})
+                            'time': f.split('_')[-1], 'volume': None},ignore_index=True)
 
     # save df with result models
     path = os.path.join(gdir.dir, 'result' + str(y0) + '.pkl')
