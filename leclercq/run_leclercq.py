@@ -19,7 +19,7 @@ import copy
 
 
 
-def fitness_function(model1, model2):
+def fitness_function(ys, model1, model2):
     """
     calculates the objective value (difference in geometry)
     :param model1: oggm.flowline.FluxBasedModel
@@ -30,7 +30,7 @@ def fitness_function(model1, model2):
     model1 = model1
     model2 = model2
     model2.run_until(0)
-    model1.run_until(2016)
+    model1.run_until(ys)
 
     fls1 = model1.fls
     fls2 = model2.fls
@@ -79,7 +79,7 @@ def _run_experiment(gdir, bias):
 
 
 def find_residual(gdir, a=-2000,b=2000):
-
+    ys = gdir.rgi_date
     try:
 
         max_it = 15
@@ -94,7 +94,7 @@ def find_residual(gdir, a=-2000,b=2000):
         while i < max_it:
             bias = round((bounds[0] + bounds[1]) / 2,1)
             ex_mod2 = _run_experiment(gdir, bias)
-            fit = fitness_function(ex_mod2,mod)
+            fit = fitness_function(ys,ex_mod2,mod)
             df = df.append(pd.Series({'bias':bias,'fitness':fit}),ignore_index=True)
             if  (abs(mod.area_km2-ex_mod2.area_km2)<1e-4 and fit<125) or bounds[1]-bounds[0]<=1:
                 break
@@ -126,7 +126,7 @@ def find_residual(gdir, a=-2000,b=2000):
         plt.savefig(os.path.join(cfg.PATHS['plot_dir'],'bias_test',gdir.rgi_id+'.png'),dpi=200)
 
 
-        diff = mod.area_km2 - model.area_km2_ts()[2016]
+        diff = mod.area_km2 - model.area_km2_ts()[gdir.rgi_date]
         model.reset_y0(1917)
         print(gdir.rgi_id, i, bias, df.fitness.min())
 
@@ -226,8 +226,6 @@ if __name__ == '__main__':
     lec = pd.read_csv('rgi_leclercq_links_2014_RGIV6.csv')
     lec['REGION'] = lec.RGI_ID.apply(lambda x: x.split('-')[-1].split('.')[0])
 
-
-
     # We use intersects
     db = utils.get_rgi_intersects_region_file(version='61', region=REGION)
     cfg.set_intersects_db(db)
@@ -238,33 +236,50 @@ if __name__ == '__main__':
 
     # only the ones with leclercq observation
     rgidf = rgidf[rgidf.RGIId.isin(lec[lec.REGION==REGION].RGI_ID.values)]
-    rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00003'])]
+    #rgidf = rgidf[rgidf.RGIId.isin(['RGI60-01.09761'])]
+
+    # exclude non-landterminating glaciers
+    rgidf = rgidf[rgidf.TermType==0]
+    rgidf = rgidf[rgidf.Connect !=2]
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=True)
 
     print(REGION, len(rgidf))
+
+
     gdirs = workflow.init_glacier_regions(rgidf)
 
     preprocessing(gdirs)
     p =advanced_experiments(gdirs, REGION)
 
-    df = pd.read_pickle(p)
+    #p = os.path.join(cfg.PATHS['working_dir'],'01_advanced_experiments.pkl')
+    df = pd.read_pickle(p,compression='gzip')
     df = df.set_index('rgi_id')
     df.fitness = df.fitness/125
+
     print(df)
 
     for gdir in gdirs:
+        try:
+            ye = gdir.rgi_date
 
-        bias = df.loc[gdir.rgi_id].bias
-        ex_mod = df.loc[gdir.rgi_id].model
+            bias = df.loc[gdir.rgi_id].bias
+            ex_mod = df.loc[gdir.rgi_id].model
 
-        ini_df = find_possible_glaciers(gdir, 1917, 2016, 200, ex_mod, bias)
-        ini_df.fitness = ini_df.fitness/125
+            lec = get_ref_length_data(gdir).dL
+            lec = lec[lec.index <= ye]
+            lec = (lec - lec.iloc[-1]) + ex_mod.length_m_ts(rollmin=5)[
+                lec.index[-1]]
 
-        lec = get_ref_length_data(gdir).dL
-        lec = (lec -lec.iloc[-1]) + ex_mod.length_m_ts(rollmin=5)[lec.index[-1]]
+            ini_df = find_possible_glaciers(gdir, 1917,ye, 200, ex_mod, bias)
+            ini_df.fitness = pd.to_numeric(ini_df.fitness/125)
+            ini_df = ini_df.dropna(subset=['fitness'])
 
-        plot_fitness_values(gdir, ini_df, ex_mod, 1917, 2016, lec, cfg.PATHS['plot_dir'])
-        plot_median(gdir, ini_df, 125, ex_mod, 1917, 2016,lec, cfg.PATHS['plot_dir'])
+
+            plot_fitness_values(gdir, ini_df, ex_mod, 1917, ye, lec, cfg.PATHS['plot_dir'])
+            plot_median(gdir, ini_df, 125, ex_mod, 1917, ye, lec, cfg.PATHS['plot_dir'])
+        except:
+            pass
+
 
 

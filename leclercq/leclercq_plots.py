@@ -150,6 +150,29 @@ def plot_median(gdir, df, eps, ex_mod, ys, ye, lec, plot_dir):
 
     df = df.sort_values('fitness', ascending=False)
 
+    # min model
+
+    min_mod = deepcopy(df.loc[df.fitness.idxmin(), 'model'])
+    min_mod.length_m_ts(rollmin=5).plot(ax=ax3, color='C1',
+                                        linewidth=3,
+                                        label=r'$s_{' + str(ys) + '-' + str(
+                                            ye) + '}^{min}$')
+    min_mod.reset_y0(ys)
+    min_mod.run_until(ys)
+    # real flowlines
+    fls = gdir.read_pickle('model_flowlines')
+    mod = FluxBasedModel(flowlines=fls)
+    ax2.plot(x, mod.fls[-1].surface_h, 'C2', label=r'OGGM$_{init}$')
+
+    ax1.plot(x, min_mod.fls[-1].surface_h, 'C1',
+             label=r'$z_{' + str(ys) + '}^{min}$',
+             linewidth=3)
+
+    min_mod.run_until(ye)
+
+    ax2.plot(x, min_mod.fls[-1].surface_h, 'C1', label=r'$z_{2000}^{min}$',
+             linewidth=3)
+
     # acceptable glacier states
     df = df[df.fitness <=1]
     s_t0 = pd.DataFrame()
@@ -219,34 +242,13 @@ def plot_median(gdir, df, eps, ex_mod, ys, ye, lec, plot_dir):
     ax2.plot(x, median_model.fls[-1].surface_h, label=r'$z_{'+str(ye)+'}^{med}$',
              linewidth=3)
 
-    # min model
-    min_mod = deepcopy(df.loc[df.fitness.idxmin(), 'model'])
-    min_mod.length_m_ts(rollmin=5).plot(ax=ax3, color='C1',
-                                linewidth=3, label=r'$s_{'+str(ys)+'-'+str(ye)+'}^{min}$')
-    min_mod.reset_y0(ys)
-    min_mod.run_until(ys)
-    # real flowlines
-    fls = gdir.read_pickle('model_flowlines')
-    mod = FluxBasedModel(flowlines=fls)
-    ax2.plot(x, mod.fls[-1].surface_h, 'C2', label=r'OGGM$_{init}$')
-
-    ax1.plot(x, min_mod.fls[-1].surface_h, 'C1', label=r'$z_{'+str(ys)+'}^{min}$',
-             linewidth=3)
-
-    min_mod.run_until(ye)
-
-    ax2.plot(x, min_mod.fls[-1].surface_h, 'C1', label=r'$z_{2000}^{min}$',
-             linewidth=3)
-
-
 
     # experiment
     lec.plot(ax=ax3, color='r', linewidth=3, label='Leclercq')
     ax1.plot(x, ex_mod.fls[-1].bed_h, 'k', label=r'$b$', linewidth=3)
     ax2.plot(x, ex_mod.fls[-1].bed_h, 'k', label=r'$b$', linewidth=3)
 
-
-
+    #ex_mod.length_m_ts(rollmin=5).plot(ax=ax3, color='k')
 
     # add figure names and x-/ylabels
     add_at(ax1, r"a", loc=3)
