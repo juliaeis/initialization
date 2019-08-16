@@ -83,6 +83,8 @@ def plot_fitness_values(gdir, df, ex_mod, ys, ye, lec, plot_dir):
     # plot experiments.py
     lec.plot(ax=ax, color='red',linewidth=3, label='')
 
+    min_mod = df.loc[df.fitness.idxmin(),'model']
+
     # add colorbar
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
@@ -124,10 +126,140 @@ def plot_fitness_values(gdir, df, ex_mod, ys, ye, lec, plot_dir):
 
     ax.set_xlim(xmin=ys-5, xmax=ye-5)
     fig_name = 'surface_' + str(ys) + '_' + gdir.rgi_id
+    #plt.savefig(os.path.join(plot_dir, fig_name + '.pdf'), dpi=300)
+    #plt.savefig(os.path.join(plot_dir, fig_name + '.png'), dpi=300)
+    plt.show()
+    plt.close()
+
+def plot_fitness_old(gdir, df, ex_mod, ys, ye, lec,plot_dir):
+
+
+    plot_dir = os.path.join(plot_dir, '03_surface_by_fitness')
+    utils.mkdir(plot_dir)
+    x = (np.arange(ex_mod.fls[-1].nx) * ex_mod.fls[-1].dx * \
+        ex_mod.fls[-1].map_dx)/1000
+    fig = plt.figure(figsize=(25, 18))
+    grid = plt.GridSpec(2, 2, hspace=0.2, wspace=0.2)
+    ax1 = plt.subplot(grid[0, 0])
+    ax2 = plt.subplot(grid[0, 1], sharey=ax1)
+    ax3 = plt.subplot(grid[1, :])
+
+    if gdir.name != '':
+        plt.suptitle(gdir.rgi_id + ': ' + gdir.name, fontsize=30)
+    elif gdir.rgi_id.endswith('11.00779'):
+        plt.suptitle(gdir.rgi_id + ': Guslarferner', fontsize=30)
+    else:
+        plt.suptitle(gdir.rgi_id, fontsize=30)
+
+    norm = mpl.colors.LogNorm(vmin=0.01/125, vmax=10)
+    cmap = matplotlib.cm.get_cmap('viridis')
+
+    # df = df.sort_values('objective', ascending=False)
+    df = df.sort_values('fitness', ascending=False)
+
+
+    for i, model in df['model'].iteritems():
+        model = deepcopy(model)
+        model.reset_y0(ys)
+        # color = cmap(norm(df.loc[i, 'objective']))
+        color = cmap(norm(df.loc[i, 'fitness']))
+        ax1.plot(x, deepcopy(model.fls[-1].surface_h), color=color,
+                 label='')
+        (model.length_m_ts()/1000).plot(ax=ax3, color=[color], label='')
+        model.run_until(ye)
+
+        ax2.plot(x, model.fls[-1].surface_h, color=color, label='')
+
+    # plot experiments.py
+    ex_mod = deepcopy(ex_mod)
+    (lec/1000).plot(ax=ax3, color='red', linewidth=3, label='')
+    #(ex_mod.length_m_ts()/1000).plot(ax=ax3, color='red', linestyle=':',
+    #                           linewidth=3,
+    #                           label='')
+    ex_mod.reset_y0(ys)
+    ex_mod.run_until(ys)
+
+    ax1.plot(x, ex_mod.fls[-1].surface_h, ':', color='red', label='',
+             linewidth=3)
+    ax1.plot(x, ex_mod.fls[-1].bed_h, 'k', label='', linewidth=3)
+
+    ex_mod.run_until(ye)
+
+    ax2.plot(x, ex_mod.fls[-1].surface_h, ':', color='red', label='',
+             linewidth=3)
+    ax2.plot(x, ex_mod.fls[-1].bed_h, 'k', label='',
+             linewidth=3)
+
+    # add colorbar
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cax, kw = mpl.colorbar.make_axes([ax1, ax2, ax3])
+    cbar = fig.colorbar(sm, cax=cax, extend='both', **kw)
+    cbar.ax.tick_params(labelsize=30)
+    cbar.set_label('Fitness value', fontsize=30)
+
+    # add figure names and x-/ylabels
+    add_at(ax1, r"a", loc=3)
+    add_at(ax2, r"b", loc=3)
+    add_at(ax3, r"c", loc=3)
+
+    ax1.set_ylabel('Altitude (m)', fontsize=30)
+    ax1.set_xlabel('Distance along the main flowline (m)', fontsize=30)
+    ax2.set_ylabel('Altitude (m)', fontsize=30)
+    ax2.set_xlabel('Distance along the main flowline (m)', fontsize=30)
+    ax3.set_ylabel(r'Length ($km$)', fontsize=30)
+    ax3.set_xlabel('Time (years)', fontsize=30)
+
+    ax1.tick_params(axis='both', which='major', labelsize=30)
+    ax2.tick_params(axis='both', which='major', labelsize=30)
+    ax3.tick_params(axis='both', which='major', labelsize=30)
+    ax3.yaxis.offsetText.set_fontsize(30)
+
+    # add legend
+    # legend
+
+    t = np.linspace(0, 10, 200)
+    x = np.cos(np.pi * t)
+    y = np.sin(t)
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    lc = LineCollection(segments, cmap=cmap,
+                        norm=plt.Normalize(0, 10), linewidth=3)
+    lc2 = LineCollection(segments, color='k',
+                         norm=plt.Normalize(0, 10), linewidth=3)
+    lc3 = LineCollection(segments, color='r', linestyle=':',
+                         norm=plt.Normalize(0, 10), linewidth=3)
+
+    l1 = ax1.legend(handles=[lc3, lc, lc2], handler_map={
+        lc: HandlerColorLineCollection(numpoints=100)},
+                    labels=[r'$z_{' + str(ys) + '}^{exp}$',
+                            r'$z_{' + str(ys) + '}$',
+                            r'$b$'], loc=1)
+
+    l2 = ax2.legend(handles=[lc3, lc, lc2],
+                    handler_map={
+                        lc: HandlerColorLineCollection(numpoints=100)},
+                    labels=[r'$z_{2000}^{obs}$', r'$z_{2000}$',
+                            r'$b$'], loc=1)
+
+    l3 = ax3.legend(handles=[lc3, lc],
+                    handler_map={
+                        lc: HandlerColorLineCollection(numpoints=100)},
+                    labels=[r'$s_{' + str(ys) + '-2000}^{exp}$',
+                            r'$s_{' + str(ys) +
+                            '-2000}$'], loc=1)
+
+    l1.set_zorder(0)
+    l2.set_zorder(0)
+    l3.set_zorder(5)
+
+    ax3.set_xlim(xmin=ys-5, xmax=ye+5)
+    fig_name = 'surface_' + str(ys) + '_' + gdir.rgi_id
     plt.savefig(os.path.join(plot_dir, fig_name + '.pdf'), dpi=300)
     plt.savefig(os.path.join(plot_dir, fig_name + '.png'), dpi=300)
     #plt.show()
     plt.close()
+
 
 
 def plot_median(gdir, df, eps, ex_mod, ys, ye, lec, plot_dir):
@@ -259,7 +391,7 @@ def plot_median(gdir, df, eps, ex_mod, ys, ye, lec, plot_dir):
     ax1.set_xlabel('Distance along the main flowline (m)', fontsize=30)
     ax2.set_ylabel('Altitude (m)', fontsize=30)
     ax2.set_xlabel('Distance along the main flowline (m)', fontsize=30)
-    ax3.set_ylabel(r'Length ($m^3$)', fontsize=30)
+    ax3.set_ylabel(r'Length ($m$)', fontsize=30)
     ax3.set_xlabel('Time (years)', fontsize=30)
 
     ax1.tick_params(axis='both', which='major', labelsize=30)
