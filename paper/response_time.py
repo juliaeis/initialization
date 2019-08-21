@@ -12,14 +12,25 @@ from initialization.core import *
 
 
 def _response(gdir, model_df):
-    ex_mod = model_df.loc[gdir.rgi_id].experiment
+
+    fig,ax = plt.subplots(1,1)
+    ex_mod2 = model_df.loc[gdir.rgi_id].experiment
+    ax.plot(0,copy.deepcopy(ex_mod2.volume_km3),'o', label=r'experiment$_{1850}$')
+    tasks.run_constant_climate(gdir, nyears=600, y0=1850, halfsize=15,
+                               temperature_bias=-1,
+                               store_monthly_step=False,
+                               output_filesuffix='experiment_equilibrium',
+                               init_model_fls=copy.deepcopy(ex_mod2.fls))
+    rp = gdir.get_filepath('model_run', filesuffix='experiment_equilibrium')
+    ex_mod = FileModel(rp)
+    ex_mod.run_until(600)
 
     try:
         # scenario a
         tasks.run_constant_climate(gdir, nyears=600, y0=1865, halfsize=15,
-                                   temperature_bias=-1,
+                                   temperature_bias=-1.05,
                                    store_monthly_step=False,
-                                   output_filesuffix='_-1',
+                                   output_filesuffix='_-1.05',
                                    init_model_fls=copy.deepcopy(ex_mod.fls))
     except:
         pass
@@ -28,8 +39,8 @@ def _response(gdir, model_df):
 
         # senario b
         tasks.run_constant_climate(gdir, nyears=600, y0=1865, halfsize=15,
-                                   store_monthly_step=False, temperature_bias=-0.5,
-                                   output_filesuffix='_-0.5',
+                                   store_monthly_step=False, temperature_bias=-1.1,
+                                   output_filesuffix='_-1.1',
                                    init_model_fls=copy.deepcopy(ex_mod.fls))
 
     except:
@@ -39,9 +50,9 @@ def _response(gdir, model_df):
 
         # senario c
         tasks.run_constant_climate(gdir, nyears=600, y0=1865, halfsize=15,
-                                   temperature_bias=-0.25,
+                                   temperature_bias=-1,
                                    store_monthly_step=False,
-                                   output_filesuffix='_-0.25',
+                                   output_filesuffix='_-1',
                                    init_model_fls=copy.deepcopy(ex_mod.fls))
     except:
         pass
@@ -49,44 +60,46 @@ def _response(gdir, model_df):
     try:
         # senario d
         tasks.run_constant_climate(gdir, nyears=600, y0=1865, halfsize=15,
-                                   store_monthly_step=False, temperature_bias=-0.1,
-                                   output_filesuffix='_-0.1',
+                                   store_monthly_step=False, temperature_bias=-0.9,
+                                   output_filesuffix='_-0.9',
                                    init_model_fls=copy.deepcopy(ex_mod.fls))
     except:
         pass
 
     try:
         # senario_e
-        ex_mod.run_until(2000)
-        tasks.run_constant_climate(gdir, nyears=600, y0=1985, halfsize=15,
+        tasks.run_constant_climate(gdir, nyears=600, y0=1865, halfsize=15,temperature_bias=-0.95,
                                    store_monthly_step=False,
-                                   output_filesuffix='_0',
+                                   output_filesuffix='_-0.95',
                                    init_model_fls=copy.deepcopy(ex_mod.fls))
     except:
         pass
 
     response = pd.DataFrame()
-    for i, s in enumerate(['_-1', '_-0.5', '_-0.25', '_-0.1', '_0']):
 
-        try:
-            rp = gdir.get_filepath('model_run', filesuffix=s)
-            mod2 = FileModel(rp)
-            if mod2.volume_km3_ts()[600] > 0:
-                if s != 'scenario_e':
-                    diff = mod2.volume_km3_ts()[600] - ((
-                                                        mod2.volume_km3_ts()[600] -
-                                                        ex_mod.volume_km3_ts()[
-                                                            1850]) / np.exp(1))
-                else:
-                    diff = mod2.volume_km3_ts()[600] - ((
-                                                        mod2.volume_km3_ts()[600] -
-                                                        ex_mod.volume_km3_ts()[
-                                                            2000]) / np.exp(1))
-                t = abs(mod2.volume_km3_ts() - diff).idxmin()
-                response.at[gdir.rgi_id, s.split('_')[-1]] = t
-        except:
-            pass
+    colors = ['C0','C1','C2','C3','C4','C5',]
+    for i, s in enumerate(['_-1.1', '_-1.05', '_-1', '_-0.95', '_-0.9']):
 
+        #try:
+        rp = gdir.get_filepath('model_run', filesuffix=s)
+        mod2 = FileModel(rp)
+        if mod2.volume_km3_ts()[600] > 0:
+
+            diff = mod2.volume_km3_ts()[600] - ((
+                                                mod2.volume_km3_ts()[600] -
+                                                ex_mod.volume_km3_ts()[
+                                                    600]) / np.exp(1))
+
+            t = abs(mod2.volume_km3_ts() - diff).idxmin()
+            response.at[gdir.rgi_id, s.split('_')[-1]] = t
+            mod2.volume_km3_ts().plot(ax=ax, color=colors[i], label=s.split('_')[-1])
+            ax.axvline(t,color=colors[i],linestyle=':')
+        #except:
+        #    pass
+    plt.legend(loc='best')
+    p = os.path.join(cfg.PATHS['plot_dir'],'response_time')
+    utils.mkdir(p)
+    plt.savefig(os.path.join(p,str(gdir.rgi_id)+'.png'))
     return response
 
 
@@ -161,11 +174,12 @@ if __name__ == '__main__':
         p = os.path.join(cfg.PATHS['working_dir'], 'models_0.pkl')
         model_df = pd.read_pickle(p, compression='gzip')
 
-    rgidf = rgidf[rgidf.RGIId.isin(model_df.index)]
+    rgidf = rgidf[rgidf.RGIId.isin(model_df.index)].sort_values(by='Area', ascending=False)
+
     gdirs = workflow.init_glacier_regions(rgidf)
 
-    #preprocessing(gdirs)
-    p = response_time(gdirs[-2:], model_df, job_nr)
+    preprocessing(gdirs)
+    p = response_time(gdirs, model_df, job_nr)
     print(pd.read_pickle(p))
 
 
