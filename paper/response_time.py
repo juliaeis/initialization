@@ -19,7 +19,7 @@ def _response(gdir, model_df):
         tasks.run_constant_climate(gdir, nyears=600, y0=1865, halfsize=15,
                                    temperature_bias=-1,
                                    store_monthly_step=False,
-                                   output_filesuffix='_a',
+                                   output_filesuffix='_-1',
                                    init_model_fls=copy.deepcopy(ex_mod.fls))
     except:
         pass
@@ -28,8 +28,8 @@ def _response(gdir, model_df):
 
         # senario b
         tasks.run_constant_climate(gdir, nyears=600, y0=1865, halfsize=15,
-                                   store_monthly_step=False,
-                                   output_filesuffix='_b',
+                                   store_monthly_step=False, temperature_bias=-0.5,
+                                   output_filesuffix='_-0.5',
                                    init_model_fls=copy.deepcopy(ex_mod.fls))
 
     except:
@@ -39,18 +39,18 @@ def _response(gdir, model_df):
 
         # senario c
         tasks.run_constant_climate(gdir, nyears=600, y0=1865, halfsize=15,
-                                   temperature_bias=1,
+                                   temperature_bias=-0.25,
                                    store_monthly_step=False,
-                                   output_filesuffix='_c',
+                                   output_filesuffix='_-0.25',
                                    init_model_fls=copy.deepcopy(ex_mod.fls))
     except:
         pass
 
     try:
         # senario d
-        tasks.run_constant_climate(gdir, nyears=600, y0=1985, halfsize=15,
-                                   store_monthly_step=False,
-                                   output_filesuffix='_d',
+        tasks.run_constant_climate(gdir, nyears=600, y0=1865, halfsize=15,
+                                   store_monthly_step=False, temperature_bias=-0.1,
+                                   output_filesuffix='_-0.1',
                                    init_model_fls=copy.deepcopy(ex_mod.fls))
     except:
         pass
@@ -60,29 +60,33 @@ def _response(gdir, model_df):
         ex_mod.run_until(2000)
         tasks.run_constant_climate(gdir, nyears=600, y0=1985, halfsize=15,
                                    store_monthly_step=False,
-                                   output_filesuffix='_e',
+                                   output_filesuffix='_0',
                                    init_model_fls=copy.deepcopy(ex_mod.fls))
     except:
         pass
 
     response = pd.DataFrame()
-    for i, s in enumerate(['_a', '_b', '_c', '_d', '_e']):
+    for i, s in enumerate(['_-1', '_-0.5', '_-0.25', '_-0.1', '_0']):
 
-        rp = gdir.get_filepath('model_run', filesuffix=s)
-        mod2 = FileModel(rp)
-        if mod2.volume_km3_ts()[600] > 0:
-            if s != 'scenario_e':
-                diff = mod2.volume_km3_ts()[600] - ((
-                                                    mod2.volume_km3_ts()[600] -
-                                                    ex_mod.volume_km3_ts()[
-                                                        1850]) / np.exp(1))
-            else:
-                diff = mod2.volume_km3_ts()[600] - ((
-                                                    mod2.volume_km3_ts()[600] -
-                                                    ex_mod.volume_km3_ts()[
-                                                        2000]) / np.exp(1))
-            t = abs(mod2.volume_km3_ts() - diff).idxmin()
-            response.at[gdir.rgi_id, s] = t
+        try:
+            rp = gdir.get_filepath('model_run', filesuffix=s)
+            mod2 = FileModel(rp)
+            if mod2.volume_km3_ts()[600] > 0:
+                if s != 'scenario_e':
+                    diff = mod2.volume_km3_ts()[600] - ((
+                                                        mod2.volume_km3_ts()[600] -
+                                                        ex_mod.volume_km3_ts()[
+                                                            1850]) / np.exp(1))
+                else:
+                    diff = mod2.volume_km3_ts()[600] - ((
+                                                        mod2.volume_km3_ts()[600] -
+                                                        ex_mod.volume_km3_ts()[
+                                                            2000]) / np.exp(1))
+                t = abs(mod2.volume_km3_ts() - diff).idxmin()
+                response.at[gdir.rgi_id, s.split('_')[-1]] = t
+        except:
+            pass
+
     return response
 
 
