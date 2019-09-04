@@ -89,7 +89,12 @@ def read_result_parallel(gdir):
     lec = lec.sort_index().interpolate()[lec.index >= 1917]
     rmse = np.sqrt(((lec - med_mod.length_m_ts(rollmin=5)[lec.index]) ** 2).mean())
     error = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).mean()
-    max_diff = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).abs().max()
+    max = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).max()
+    min = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).min()
+    if abs(max)>abs(min):
+        max_diff = max
+    else:
+        max_diff = min
     temp_bias = cfg.PATHS['working_dir'].split('_')[-1]
 
     # saves median state, minimum state and experiment model
