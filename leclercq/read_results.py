@@ -21,7 +21,7 @@ def find_median(df):
         quant_df = accept_df[accept_df.fitness <= accept_df.fitness.quantile(0.05)]
 
         # median state
-        quant_df.loc[:, 'length'] = quant_df.model.apply(lambda x: x.length_m)
+        quant_df.loc[:,'length']= quant_df.model.apply(lambda x: x.length_m)
         quant_df = quant_df.sort_values('length', ascending=False)
         l = len(quant_df)
         if l % 2:
@@ -74,9 +74,6 @@ def read_result_parallel(gdir):
     fls = gdir.read_pickle('model_flowlines')
     mod = FluxBasedModel(flowlines=fls)
 
-    #bias = df.loc[gdir.rgi_id].bias
-
-
     lec = get_ref_length_data(gdir).dL
     lec = lec[lec.index <= ye]
 
@@ -85,16 +82,18 @@ def read_result_parallel(gdir):
     ini_df = pd.read_pickle(os.path.join(gdir.dir,'result1917.pkl'), compression='gzip')
     ini_df.loc[:,'fitness'] = pd.to_numeric(ini_df.fitness / 125)
     ini_df = ini_df.dropna(subset=['fitness'])
+
     med_mod, perc_min, perc_max = find_median(ini_df)
 
     lec.loc[1917] = np.nan
     lec = lec.sort_index().interpolate()[lec.index >= 1917]
     rmse = np.sqrt(((lec - med_mod.length_m_ts(rollmin=5)[lec.index]) ** 2).mean())
     max_diff = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).abs().max()
+    temp_bias = cfg.PATHS['working_dir'].split('_')[-1]
 
     # saves median state, minimum state and experiment model
     return pd.Series({'rgi':gdir.rgi_id,'region':gdir.rgi_region,
-                      'length':mod.length_m,
+                      'length':mod.length_m, 'temp_bias':temp_bias,
                       'rmse':rmse, 'max_diff':max_diff})
 
     #except:
