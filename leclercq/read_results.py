@@ -88,13 +88,14 @@ def read_result_parallel(gdir):
     lec.loc[1917] = np.nan
     lec = lec.sort_index().interpolate()[lec.index >= 1917]
     rmse = np.sqrt(((lec - med_mod.length_m_ts(rollmin=5)[lec.index]) ** 2).mean())
+    error = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).mean()
     max_diff = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).abs().max()
     temp_bias = cfg.PATHS['working_dir'].split('_')[-1]
 
     # saves median state, minimum state and experiment model
     return pd.Series({'rgi':gdir.rgi_id,'region':gdir.rgi_region,
                       'length':mod.length_m, 'temp_bias':temp_bias,
-                      'rmse':rmse, 'max_diff':max_diff})
+                      'rmse':rmse, 'max_diff':max_diff, 'error':error})
 
     #except:
     #    return pd.Series({'rgi':gdir.rgi_id})
