@@ -12,7 +12,7 @@ pd.options.mode.chained_assignment = None
 if __name__ == '__main__':
     cfg.initialize()
 
-    ON_CLUSTER = False
+    ON_CLUSTER = True
 
     # Local paths
     if ON_CLUSTER:

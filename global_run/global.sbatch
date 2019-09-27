@@ -25,6 +25,8 @@ echo "$SLURM_ARRAY_TASK_ID"
 I=$SLURM_ARRAY_TASK_ID
 # Export the WORKDIR as environment variable so our benchmark script can use it to find its working $
 export S_WORKDIR
+export I
+# set RGI region
 export REGION=11
 export OGGM_DOWNLOAD_CACHE="/home/data/download"
 export OGGM_DOWNLOAD_CACHE_RO=1
