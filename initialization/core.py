@@ -31,17 +31,16 @@ def _find_extrema(ts):
     return extrema
 
 
-def _run_parallel_experiment(gdir):
+def _run_parallel_experiment(gdir, t0, te):
     """
     Creates the synthetic experiment for one glacier. model_run_experiment.nc
     will be saved in working directory.
     """
-
     try:
         fls = gdir.read_pickle('model_flowlines')
         # try to run random climate with temperature bias -1
 
-        model = tasks.run_random_climate(gdir, nyears=600, y0=1850, bias=0, seed=1,
+        model = tasks.run_random_climate(gdir, nyears=600, y0=t0, bias=0, seed=1,
                                          temperature_bias=-1,
                                          init_model_fls=fls)
 
@@ -50,7 +49,7 @@ def _run_parallel_experiment(gdir):
         b = fls[-1].bed_h
 
         fls = copy.deepcopy(model.fls)
-        model = tasks.run_from_climate_data(gdir, ys=1850, ye=2000, init_model_fls=fls,
+        model = tasks.run_from_climate_data(gdir, ys=t0, ye=te, init_model_fls=fls,
                                     output_filesuffix='_experiment')
     except:
         print('experiment failed : ' + str(gdir.rgi_id))
@@ -427,7 +426,7 @@ def preprocessing(gdirs):
     workflow.execute_entity_task(tasks.init_present_time_glacier, gdirs)
 
 
-def synthetic_experiments_parallel(gdirs):
+def synthetic_experiments_parallel(gdirs, t0, te):
     """
     creates searched and observed glacier to test the method, need only to
     be run once
@@ -445,6 +444,6 @@ def synthetic_experiments_parallel(gdirs):
         return
 
     pool = mp.Pool()
-    pool.map(_run_parallel_experiment, gdirs)
+    pool.map(partial(_run_parallel_experiment,t0=t0, te=te), gdirs)
     pool.close()
     pool.join()
