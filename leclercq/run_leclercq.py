@@ -8,46 +8,47 @@ import numpy as np
 import matplotlib.pyplot as plt
 from oggm import cfg, utils, workflow, tasks
 from oggm.utils._downloads import get_demo_file
-from oggm.core.flowline import FluxBasedModel
+from oggm.core.flowline import FluxBasedModel, FileModel
 import oggm
 from leclercq.leclercq_plots import *
 sys.path.append('../')
 sys.path.append('../../')
 from  initialization.core import *
+import advanced_experiments
 import copy
 
+mpl.rcParams['axes.linewidth'] = 3
+mpl.rcParams['xtick.major.width'] = 3
+mpl.rcParams['ytick.major.width'] = 3
+mpl.rcParams['font.size'] =25
+mpl.rcParams['font.weight'] = 'medium'
+mpl.rcParams['axes.labelweight'] = 'medium'
+mpl.rcParams['legend.fontsize'] = 20 #30
+mpl.rcParams['lines.linewidth'] = 3
 
 
-
-def fitness_function(ys, model1, model2):
-    """
-    calculates the objective value (difference in geometry)
-    :param model1: oggm.flowline.FluxBasedModel
-    :param model2: oggm.flowline.FluxBasedModel
-    :return:       float
-    """
-
-    model1 = model1
-    model2 = model2
-    model2.run_until(0)
-    model1.run_until(ys)
-
-    fls1 = model1.fls
-    fls2 = model2.fls
-
-    fitness = 0
-    m = 0
-    for i in range(len(model1.fls)):
-        fitness = fitness + np.sum(
-            abs(fls1[i].surface_h - fls2[i].surface_h)**2) + \
-                    np.sum(abs(fls1[i].widths - fls2[i].widths)**2)
-        m = m + fls1[i].nx
-    fitness = fitness / m
-
-    return fitness
+def find_median(df):
 
 
-def _run_experiment(gdir, bias):
+    try:
+        accept_df = df[df.fitness <= 1]
+        quant_df = accept_df[accept_df.fitness <= accept_df.fitness.quantile(0.05)]
+
+        # median state
+        quant_df.loc[:, 'length'] = quant_df.model.apply(lambda x: x.length_m)
+        quant_df = quant_df.sort_values('length', ascending=False)
+        l = len(quant_df)
+        if l % 2:
+            index = int((l - 1) / 2)
+        else:
+            index = int(l / 2)
+        return deepcopy(quant_df.iloc[index].model), quant_df.at[quant_df.length.idxmin(),'model'], quant_df.at[quant_df.length.idxmax(),'model']
+    except:
+
+        return deepcopy(df.loc[df.fitness.idxmin()].model), None, None
+
+
+def _run_experiment(gdir, temp_bias, bias, ys,ye):
     """
     Creates the synthetic experiment for one glacier. model_run_experiment.nc
     will be saved in working directory.
@@ -55,86 +56,91 @@ def _run_experiment(gdir, bias):
 
     # check, if this experiment already exists
     try:
-        rp = gdir.get_filepath('model_run', filesuffix='_advanced_experiment_' + str(bias))
+        rp = gdir.get_filepath('model_run', filesuffix='_advanced_experiment_' +str(temp_bias)+'_'+ str(bias))
         model = FileModel(rp)
 
     # otherwise create experiment
     except:
 
         fls = gdir.read_pickle('model_flowlines')
+
         try:
-            model = tasks.run_random_climate(gdir, nyears=400, y0=1917, bias=bias, seed=1,
-                                             temperature_bias=-0.5,
-                                             init_model_fls=fls)
+            model = tasks.run_random_climate(gdir, nyears=600, y0=ys, bias=bias, seed=1,
+                                             temperature_bias=temp_bias,
+                                             init_model_fls=fls,output_filesuffix='_random_experiment_'+str(temp_bias)+'_'+str(bias) )
 
             # construct observed glacier, previous glacier will be run forward from
-            # 1917 - 2000 with past climate file
+            # 1917 - rgi_date with past climate file
 
             fls = deepcopy(model.fls)
-            model = tasks.run_from_climate_data(gdir, ys=1917, ye=2016, init_model_fls=fls,bias=bias,
-                                        output_filesuffix='_advanced_experiment_'+str(bias))
+            tasks.run_from_climate_data(gdir, ys=ys, ye=ye, init_model_fls=fls,bias=bias,
+                                        output_filesuffix='_advanced_experiment_'+str(temp_bias)+'_'+str(bias))
+            # to return FileModel
+            rp = gdir.get_filepath('model_run',filesuffix='_advanced_experiment_' + str(
+                                       temp_bias) + '_' + str(bias))
+            model = FileModel(rp)
+
+
         except:
             pass
+
     return model
 
 
-def find_residual(gdir, a=-2000,b=2000):
-    ys = gdir.rgi_date
-    try:
+def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
+    best_df = pd.DataFrame()
 
-        max_it = 15
-        i = 0
-        bounds = [a,b]
+    fls = gdir.read_pickle('model_flowlines')
+    mod = FluxBasedModel(flowlines=fls)
 
-        df = pd.DataFrame()
+    for temp_bias in temp_bias_list:
 
-        fls = gdir.read_pickle('model_flowlines')
-        mod = FluxBasedModel(flowlines=fls)
+        try:
+            ye = gdir.rgi_date
+            max_it = 15
+            i = 0
+            bounds = [a, b]
 
-        while i < max_it:
-            bias = round((bounds[0] + bounds[1]) / 2,1)
-            ex_mod2 = _run_experiment(gdir, bias)
-            fit = fitness_function(ys,ex_mod2,mod)
-            df = df.append(pd.Series({'bias':bias,'fitness':fit}),ignore_index=True)
-            if  (abs(mod.area_km2-ex_mod2.area_km2)<1e-4 and fit<125) or bounds[1]-bounds[0]<=1:
-                break
+            df = pd.DataFrame()
 
-            elif ex_mod2.area_km2 > mod.area_km2:
-                bounds[0] = bias
-            else:
-                bounds[1] = bias
-            i +=1
+            while i < max_it:
+                bias = round((bounds[0] + bounds[1]) / 2, 1)
 
-        # best bias found
-        bias = df.iloc[df.fitness.idxmin()].bias
-        rp = gdir.get_filepath('model_run', filesuffix='_advanced_experiment_' + str(bias))
-        model = FileModel(rp)
-        model.run_until(2016)
+                ex_mod2 = _run_experiment(gdir, temp_bias, bias, ys, ye)
 
-        rp = gdir.get_filepath('model_run', filesuffix='_advanced_experiment_' + str(0.0))
-        ex_mod = FileModel(rp)
-        ex_mod.run_until(2016)
+                diff = mod.area_km2 - ex_mod2.area_km2_ts()[ye]
 
+                df = df.append(pd.Series({'bias': bias, 'area_diff': diff}),
+                               ignore_index=True)
 
-        plt.figure(figsize=(15,10))
-        plt.plot(model.fls[-1].surface_h,'r',label='best')
-        plt.plot(mod.fls[-1].surface_h, 'orange', label='original')
-        plt.plot(ex_mod.fls[-1].surface_h, 'r:', label='old experiment')
-        plt.plot(model.fls[-1].bed_h,'k', label='bed')
-        plt.legend()
-        utils.mkdir(os.path.join(cfg.PATHS['plot_dir'],'bias_test'))
-        plt.savefig(os.path.join(cfg.PATHS['plot_dir'],'bias_test',gdir.rgi_id+'.png'),dpi=200)
+                if (abs(diff) < 1e-4) or bounds[1] - bounds[0] <= 1:
+                    break
 
+                elif ex_mod2.area_km2_ts()[ye] > mod.area_km2:
+                    bounds[0] = bias
+                else:
+                    bounds[1] = bias
+                i += 1
 
-        diff = mod.area_km2 - model.area_km2_ts()[gdir.rgi_date]
-        model.reset_y0(1917)
-        print(gdir.rgi_id, i, bias, df.fitness.min())
+            # best bias found
+            bias = df.iloc[df.area_diff.abs().idxmin()].bias
 
-        series = pd.Series({'rgi_id':gdir.rgi_id,'bias':bias,'iterations':i, 'fitness':df.fitness.min(), 'area_diff':diff, 'model':model})
-    except:
-        series =  pd.Series({'rgi_id':gdir.rgi_id})
+            rp = gdir.get_filepath('model_run',
+                                   filesuffix='_advanced_experiment_' + str(
+                                       temp_bias) + '_' + str(bias))
+            model = FileModel(rp)
 
-    return series
+            diff = gdir.rgi_area_km2 - model.area_km2_ts()[gdir.rgi_date]
+
+            series = pd.Series(
+                {'rgi_id': gdir.rgi_id, 'bias': bias, 'iterations': i,
+                 'area_diff': diff, 'model': model, 'temp_bias': temp_bias})
+
+        except:
+            series = pd.Series({'rgi_id': gdir.rgi_id, 'temp_bias': temp_bias})
+        best_df = best_df.append(series, ignore_index=True)
+
+    return best_df
 
 
 def get_ref_length_data(gdir):
@@ -161,36 +167,51 @@ def get_ref_length_data(gdir):
     return df
 
 
-def advanced_experiments(gdirs, region):
+def advanced_experiments(gdirs, temp_bias_list ,ys , region):
+
     exp_df = pd.DataFrame()
 
     pool = Pool()
-    list = pool.map(find_residual, gdirs)
+    list = pool.map(partial(find_residual,temp_bias_list=temp_bias_list,ys=ys),gdirs)
     pool.close()
     pool.join()
 
     exp_df = exp_df.append(list, ignore_index=True)
     p = os.path.join(cfg.PATHS['working_dir'], str(region)+'_advanced_experiments.pkl')
-    #exp_df.to_pickle(
-    #    os.path.join(cfg.PATHS['working_dir'], '11_advanced_experiments.pkl'))
-
+    exp_df.to_pickle(p, compression='gzip')
     return p
+
 if __name__ == '__main__':
 
     cfg.initialize()
 
-    ON_CLUSTER = False
+    ON_CLUSTER = True
     REGION = '11'
 
     # Local paths
     if ON_CLUSTER:
         WORKING_DIR = os.environ.get("S_WORKDIR")
         cfg.PATHS['working_dir'] = WORKING_DIR
+        TEMP_BIAS = float(os.environ.get('TEMP_BIAS'))
         REGION = str(os.environ.get('I')).zfill(2)
+        if float(REGION)<=19:
+            REGION_NAME = REGION+'a'
+        elif float(REGION)<=38:
+            REGION = str(int(REGION)-19).zfill(2)
+            REGION_NAME = REGION+'b'
+        elif float(REGION)<=57:
+            REGION = str(int(REGION)-38).zfill(2)
+            REGION_NAME = REGION+'c'
+        else:
+            REGION = str(int(REGION)-57).zfill(2)
+            REGION_NAME = REGION+'d'
+
     else:
-        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/leclercq'
+	WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/leclercq'
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
+    print(REGION_NAME)
+    print(TEMP_BIAS)
 
     cfg.PATHS['plot_dir'] = os.path.join(cfg.PATHS['working_dir'], 'plots')
     utils.mkdir(cfg.PATHS['plot_dir'], reset=False)
@@ -208,17 +229,8 @@ if __name__ == '__main__':
     cfg.PARAMS['optimize_inversion_params'] = False
     cfg.PARAMS['dl_verify'] = False
 
-    '''
-    # Use HISTALP climate file
-    cfg.PARAMS['baseline_climate'] = 'HISTALP'
-    cfg.PARAMS['prcp_scaling_factor'] = 1.75
-    cfg.PARAMS['temp_all_liq'] = 2.0
-    cfg.PARAMS['temp_default_gradient'] = -0.0065
-    cfg.PARAMS['temp_melt'] = -1.75
-    cfg.PARAMS['temp_all_solid'] = 0.0
-    '''
 
-    # add to BASENAMES
+# add to BASENAMES
     _doc = 'contains observed and searched glacier from synthetic experiment to find intial state'
     cfg.BASENAMES['synthetic_experiment'] = ('synthetic_experiment.pkl', _doc)
 
@@ -236,29 +248,30 @@ if __name__ == '__main__':
 
     # only the ones with leclercq observation
     rgidf = rgidf[rgidf.RGIId.isin(lec[lec.REGION==REGION].RGI_ID.values)]
-    #rgidf = rgidf[rgidf.RGIId.isin(['RGI60-01.09761'])]
 
-    # exclude non-landterminating glaciers
+     # exclude non-landterminating glaciers
     rgidf = rgidf[rgidf.TermType==0]
     rgidf = rgidf[rgidf.Connect !=2]
+
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=True)
 
-    print(REGION, len(rgidf))
-
-
     gdirs = workflow.init_glacier_regions(rgidf)
+    if REGION_NAME.endswith('a'):
+        gdirs = gdirs[0:len(gdirs):4]
+    elif REGION_NAME.endswith('b'):
+        gdirs = gdirs[1:len(gdirs):4]
+    elif REGION_NAME.endswith('c'):
+        gdirs = gdirs[2:len(gdirs):4]
+    else:
+	gdirs = gdirs[3:len(gdirs):4]
 
     preprocessing(gdirs)
-    p =advanced_experiments(gdirs, REGION)
-
-    #p = os.path.join(cfg.PATHS['working_dir'],'01_advanced_experiments.pkl')
-    df = pd.read_pickle(p,compression='gzip')
+    p =advanced_experiments(gdirs,[TEMP_BIAS] ,1917 ,REGION_NAME)
+    df = pd.read_pickle(p, compression='gzip')
     df = df.set_index('rgi_id')
-    df.fitness = df.fitness/125
 
-    print(df)
-
+    diff = pd.DataFrame()
     for gdir in gdirs:
         try:
             ye = gdir.rgi_date
@@ -275,11 +288,125 @@ if __name__ == '__main__':
             ini_df.fitness = pd.to_numeric(ini_df.fitness/125)
             ini_df = ini_df.dropna(subset=['fitness'])
 
+            med_mod, perc_min, perc_max = find_median(ini_df)
+
+            lec.loc[1917]= np.nan
+            lec = lec.sort_index().interpolate()[lec.index >= 1917]
+
+            rmse = np.sqrt(((lec - med_mod.length_m_ts(rollmin=5)[lec.index]) ** 2).mean())
+            rmspe = np.sqrt((((lec - med_mod.length_m_ts(rollmin=5)[lec.index])/lec) ** 2).mean())*100
+            error = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).mean()
+            perc_error = ((lec - med_mod.length_m_ts(rollmin=5)[lec.index])/lec).mean()
+
+            max = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).max()
+            min = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).min()
+            if abs(max)>abs(min):
+                max_diff = max
+            else:
+                max_diff = min
+
+            temp_bias = cfg.PATHS['working_dir'].split('_')[-1]
+
+            diff.loc[gdir.rgi_id, 'region'] = REGION
+            diff.loc[gdir.rgi_id,'rmse']=rmse
+            diff.loc[gdir.rgi_id, 'rmspe'] = rmspe
+            diff.loc[gdir.rgi_id, 'error'] = error
+            diff.loc[gdir.rgi_id, 'perc_error'] = perc_error
+            diff.loc[gdir.rgi_id,'max_diff'] = max_diff
+
 
             plot_fitness_values(gdir, ini_df, ex_mod, 1917, ye, lec, cfg.PATHS['plot_dir'])
             plot_median(gdir, ini_df, 125, ex_mod, 1917, ye, lec, cfg.PATHS['plot_dir'])
+
         except:
             pass
 
+    diff.to_pickle(os.path.join(cfg.PATHS['working_dir'], REGION_NAME+'_leclercq_difference.pkl'))
 
 
+'''
+
+
+    #except:
+    #    pass
+
+
+    diff = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'],'leclercq_difference.pkl'))
+    diff.sort_values(by='region')
+    diff.rmse = diff.rmse/1000
+    diff.max_diff = diff.max_diff/1000
+
+    print(diff[diff.region=='01'].sort_values(by='rmse').rmse)
+
+
+
+    fig,ax = plt.subplots(1,1)
+    bp = diff.boxplot(column='rmse', by='region',return_type='dict',ax=ax)
+    # Calculate number of obs per group & median to position labels
+
+    nobs = diff['region'].value_counts().sort_index().values
+    nobs = [str(x) for x in nobs.tolist()]
+    nobs = ["n: " + i for i in nobs]
+
+    # Add it to the plot
+    pos = range(len(nobs))
+    for tick, label in zip(pos, ax.get_xticklabels()):
+
+        ax.text(pos[tick]+1, -0.15, nobs[tick],
+                horizontalalignment='center', size='x-small', color='k',
+                weight='semibold')
+
+    [[item.set_linewidth(2) for item in key[item]] for key in bp for item in bp['rmse'].keys()]
+    [[item.set_color('red') for item in key['medians']] for key in bp]
+
+
+    #plt.yticks(np.arange(0, 15, step=1))
+    plt.ylabel('Root Mean Square Error (km)')
+    plt.xlabel('Region')
+    plt.title('Comparison with Leclercq')
+    plt.suptitle('')
+
+    # maximum difference
+    fig, ax = plt.subplots(1, 1)
+    bp = diff.boxplot(column='max_diff', by='region', return_type='dict', ax=ax)
+    # Calculate number of obs per group & median to position labels
+
+    nobs = diff['region'].value_counts().sort_index().values
+    nobs = [str(x) for x in nobs.tolist()]
+    nobs = ["n: " + i for i in nobs]
+
+    # Add it to the plot
+    pos = range(len(nobs))
+    for tick, label in zip(pos, ax.get_xticklabels()):
+        ax.text(pos[tick] + 1, -0.4, nobs[tick],
+                horizontalalignment='center', size='x-small', color='k',
+                weight='semibold')
+
+    [[item.set_linewidth(2) for item in key[item]] for key in bp for item in
+     bp['max_diff'].keys()]
+    [[item.set_color('red') for item in key['medians']] for key in bp]
+
+    # plt.yticks(np.arange(0, 15, step=1))
+    plt.ylabel('Root Mean Square Error (km)')
+    plt.xlabel('Region')
+    plt.title('Comparison with Leclercq')
+    plt.suptitle('')
+
+
+    plt.show()
+
+
+    p = os.path.join(cfg.PATHS['working_dir'],'11_advanced_experiments.pkl')
+    df = pd.read_pickle(p,compression='gzip')
+    df = df.set_index('rgi_id')
+    df.fitness = df.fitness/125
+    print(len(df.dropna()))
+
+    df.bias.plot.hist()
+    plt.title('mb bias, Alps (n=85)')
+    plt.show()
+
+
+    df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'],'09_leclercq_difference.pkl'))
+    print(df)
+'''
