@@ -13,6 +13,7 @@ from leclercq.leclercq_plots import *
 sys.path.append('../')
 sys.path.append('../../')
 from  initialization.core import *
+from paper.plots_paper import *
 
 
 def fitness_function(ye, model1, model2):
@@ -124,7 +125,6 @@ def find_residual(gdir, temp_bias_list, ys,a=-2000,b=2000):
             utils.mkdir(os.path.join(cfg.PATHS['plot_dir'],'bias_test'))
             plt.savefig(os.path.join(cfg.PATHS['plot_dir'],'bias_test',gdir.rgi_id+'.png'),dpi=200)
             '''
-
             diff = mod.area_km2 - model.area_km2_ts()[gdir.rgi_date]
             model.reset_y0(ys)
 
@@ -155,7 +155,7 @@ def find_residual(gdir, temp_bias_list, ys,a=-2000,b=2000):
     return best_df
 
 
-def advanced_experiments(gdirs, temp_bias_list,ys, region):
+def advanced_experiments(gdirs, temp_bias_list ,ys , region):
 
     exp_df = pd.DataFrame()
 
@@ -174,7 +174,7 @@ if __name__ == '__main__':
     cfg.initialize()
 
     ON_CLUSTER = False
-    REGION = '09'
+    REGION = '11'
 
     # Local paths
     if ON_CLUSTER:
@@ -231,7 +231,7 @@ if __name__ == '__main__':
     rgidf = gpd.read_file(path)
 
     # only the ones with leclercq observation
-    rgidf = rgidf[rgidf.RGIId.isin(lec[lec.REGION==REGION].RGI_ID.values)]
+    rgidf = rgidf[rgidf.RGIId.isin(lec[lec.REGION==REGION].RGI_ID.values)].head(5)
     #rgidf = rgidf[rgidf.RGIId.isin(['RGI60-05.02112'])]
 
     # exclude non-landterminating glaciers
@@ -242,11 +242,34 @@ if __name__ == '__main__':
 
     gdirs = workflow.init_glacier_regions(rgidf)
 
-    preprocessing(gdirs)
+    #preprocessing(gdirs)
     temp_bias_list = [0, -0.25, -0.5, -0.75, -1, -1.25, -1.5, -1.75, -2]
     temp_bias_list = [0,-1]
-    p = advanced_experiments(gdirs, temp_bias_list, 1917,REGION)
-    df = pd.read_pickle(p,compression='gzip')
+    #p = advanced_experiments(gdirs, temp_bias_list, 1917,REGION)
+    '''
+    best_df = pd.DataFrame()
+    for REGION in [str(x).zfill(2) for x in range(0,19)]:
+        try:
+            p = os.path.join(cfg.PATHS['working_dir'],
+                             REGION + '_advanced_experiments.pkl')
+            df = pd.read_pickle(p, compression='gzip')
 
+            for rgi in df.rgi_id.unique():
+                best = df.iloc[df[df.rgi_id==rgi].fitness.idxmin()]
+                best_df = best_df.append(pd.Series({'rgi_id':best.rgi_id, 'temp_bias':best.temp_bias, 'bias':best.bias, 'fitness':best.fitness/125}),ignore_index=True)
+        except:
+            pass
 
+    best_df = best_df.set_index('rgi_id')
+    best_df.to_csv(os.path.join(cfg.PATHS['working_dir'],'best_experiment.csv'))
+    '''
 
+    df = pd.read_csv(os.path.join(cfg.PATHS['working_dir'],'best_experiment.csv'))
+    df = df.set_index('rgi_id')
+    for gdir in gdirs:
+        bias = df.loc[gdir.rgi_id].bias
+        temp_bias = df.loc[gdir.rgi_id].temp_bias
+        print(bias, temp_bias)
+        ex_mod = _run_experiment(gdir, temp_bias, bias, 1917,gdir.rgi_date)
+        plot_experiment(gdir, ex_mod, 1917, cfg.PATHS['plot_dir'])
+        print(ex_mod)

@@ -17,6 +17,8 @@ from oggm import cfg, workflow, utils
 from oggm.core.flowline import FluxBasedModel
 pd.options.mode.chained_assignment = None
 
+utils._downloads.get_ref_mb_glaciers_candidates()
+
 mpl.rcParams['axes.linewidth'] = 3
 mpl.rcParams['xtick.major.width'] = 3
 mpl.rcParams['ytick.major.width'] = 3
@@ -446,7 +448,7 @@ if __name__ == '__main__':
         cfg.PATHS['working_dir'] = WORKING_DIR
         job_nr = int(os.environ.get('I'))
     else:
-        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/cluster_advanced_experiments/advanced'
+        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/cluster_advanced_experiments/advanced3'
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
 
@@ -484,16 +486,25 @@ if __name__ == '__main__':
     rgidf = gpd.read_file(path)
 
     # sort for efficient using
-    rgidf = rgidf.sort_values('Area', ascending=False)
+    #rgidf = rgidf.sort_values('Area', ascending=False)
+    for i in range(71):
+        print(i)
+        print(rgidf.iloc[(i * 56):(i * 56) + 56])
+
+    '''
     gdirs = workflow.init_glacier_regions(rgidf)
+
+
+
 
     if ON_CLUSTER:
         gdirs = gdirs[job_nr:len(gdirs):80]
+    gdirs = gdirs[:-4]
 
 
     preprocessing(gdirs)
 
-    # experiments
+    # experiments.py
     #synthetic_experiments_parallel(gdirs)
 
     t_0 = 1850
@@ -508,8 +519,8 @@ if __name__ == '__main__':
     pool.join()
 
     exp_df = exp_df.append(list, ignore_index=True)
-    exp_df.to_pickle(os.path.join(cfg.PATHS['working_dir'],'advanced_experiments_' + str(job_nr) + '.pkl'))
-    '''
+    exp_df.to_pickle(os.path.join(cfg.PATHS['working_dir'],'advanced_experiments_' + str(1) + '.pkl'))
+
     exp_df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'],'advanced_experiments.pkl'))
     exp_df = exp_df.dropna()
 

@@ -112,7 +112,7 @@ def plot_ratio_volume(df,acc_df,perc_df,ex_mod,gdir, ratio, t):
     plt.xlabel('Time (years)')
     utils.mkdir(os.path.join(cfg.PATHS['plot_dir'],'ratio'))
     plt.savefig(os.path.join(cfg.PATHS['plot_dir'],'ratio',gdir.rgi_id+'.png'))
-    #plt.show()
+    plt.show()
 
 def read_result_parallel(gdir):
 
@@ -133,8 +133,8 @@ def read_result_parallel(gdir):
     v_perc = perc_df.model.apply(lambda x: x.volume_km3_ts())
 
     try:
-        ratio = (v_perc.max()-v_perc.min())/(v_acc.max()[1850]-v_acc.min()[1850])
-        t = int(ratio[ratio<0.01].index[0])
+        ratio = 1-(v_perc.max()-v_perc.min())/(v_acc.max()[1850]-v_acc.min()[1850])
+        t = int(ratio[ratio>0.98].index[0])
     except:
         t=2000
 
@@ -225,29 +225,45 @@ if __name__ == '__main__':
     rgidf = rgidf.sort_values('Area', ascending=False)
     gdirs = workflow.init_glacier_regions(rgidf)
 
-    df = read_results(gdirs).dropna()
-    print(df)
+    #df = read_results(gdirs).dropna()
     #df.to_pickle(os.path.join(cfg.PATHS['working_dir'],'ratio.pkl'),compression='gzip')
-    '''
 
-    df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'],'ratio.pkl'),compression='gzip')
+
+    df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'],'ratio.pkl'),compression='gzip').dropna()
+    plt.figure(figsize=(15,8))
+    grid = plt.GridSpec(1,2,top=0.75,bottom=0.25,wspace=0.4)
+    ax1 = plt.subplot(grid[0])
+    ax2 = plt.subplot(grid[1])
+    df.ratio.hist(bins=20, ax=ax1)
+    ax1.set_xlabel('Reconstructability measure')
+    ax1.set_ylabel('Frequency')
+    plt.suptitle('Reconstructability (Alps), n=2660')
+
+    df = df[['rgi', 'ratio',  'length', 'area', 'volume', 'ela_2000',
+             'ela_change', 'slope_max', 'slope_mean', 'slope_median', 'slope_2thrid',
+             'slope_third']].dropna()
+    print(df.corr()['ratio'])
+
         #for i, col in enumerate(df.drop(['rgi','ratio'],axis=1)):
         #fig, ax = plt.subplots(1, 1)
         #df.plot.scatter(x=col,y='ratio',ax=ax)
     #plt.show()
-    df = df[['rgi','ratio','length','area','volume','ela_2000','ela_change', 'slope_max','slope_mean']].dropna()
 
-    fig,ax = plt.subplots(1,1,figsize=(10,15))
+
     p = calculate_pvalues(df)
-    matrix = ax.matshow(df.drop('rgi',axis=1).corr(),vmin=-1,vmax=1, cmap='RdBu_r')
-    marks = ['measure', 'Length', 'Area','Volume', r'ELA$_{2000}$', r'ELA$_{1850}$/ELA$_{2000}$',
-              r'Slope$_{max}$', r'Slope$_{mean}$']
+    matrix = ax2.matshow(df.drop('rgi',axis=1).corr(),vmin=-1,vmax=1, cmap='RdBu_r')
+    marks = ['Reconstr.', 'Length', 'Area','Volume', r'ELA$_{2000}$', r'$\Delta$ ELA ',
+              r'Slope$_{max}$', r'Slope$_{mean}$', r'Slope$_{median}$',r'Slope$_{2/3}$',r'Slope$_{1/3}$']
     tick_marks = [i for i in range(len(df.drop('rgi',axis=1).columns))]
     plt.xticks(tick_marks, marks, rotation='vertical')
     plt.yticks(tick_marks, marks)
-    plt.colorbar(matrix,fraction=0.046, pad=0.04)
+    plt.colorbar(matrix,fraction=0.046, pad=0.04, label='correlation coefficient')
     plt.tight_layout()
+    plt.savefig('/home/juliaeis/Dropbox/Apps/Overleaf/reconstruction_paper/plots/measure.pdf')
     plt.show()
+
+
+    '''
 
     from sklearn.linear_model import LinearRegression
 
@@ -266,8 +282,10 @@ if __name__ == '__main__':
 
     plt.xlabel('reconstructability measure')
     plt.ylabel('mean slope')
-    plt.show()
 
+    plt.figure()
+    df.time.plot.hist(bins=30)
+    plt.show()
 
 
     print(gdir.rgi_id)
