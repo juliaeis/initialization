@@ -20,6 +20,7 @@ source /home/users/julia/python3_env/bin/activate
 S_WORKDIR="/work/$SLURM_JOB_USER/leclercq"
 
 mkdir -p "$S_WORKDIR"
+
 echo "Workdir for this run: $S_WORKDIR"
 
 echo "$SLURM_ARRAY_TASK_ID"
@@ -41,8 +42,8 @@ echo "DONE"
 # Once a slurm job is done, slurm will clean up the /work directory on that node from any leftovers $
 # So copy any result data you need from there back to your home dir!
 # $SLURM_SUBMIT_DIR points to the directory from where the job was initially commited.
-OUTDIR="/home/users/julia/initialization/out"
-mkdir -p "$OUTDIR"
+
+
 # Copy any neccesary result data.
 cp -r "${S_WORKDIR}" "${OUTDIR}"
 
