@@ -2,6 +2,8 @@
 import sys
 sys.path.append('../')
 from initialization.core import *
+from shutil import copyfile
+
 
 
 import geopandas as gpd
@@ -62,22 +64,25 @@ if __name__ == '__main__':
     t_0 = 1917
 
     epsilon = 125
-    #preprocessing(gdirs)
+    preprocessing(gdirs)
     #advanced_experiments(gdirs, [0], 1917, REGION)
 
     for gdir in gdirs:
-        dir = os.path.join(OUT_DIR,'per_glacier',gdir.dir.split('/per_glacier/')[-1])
+        dir = os.path.join(OUT_DIR,'global',gdir.dir.split('/global/')[-1])
         ex = [f for f in os.listdir(dir) if f.startswith('model_run_ad')]
         if len(ex)==1:
-            suffix = ex[0].split('model_run')[-1].split('.nc')[0]
-            rp = gdir.get_filepath('model_run', filesuffix=suffix)
+            t_e = gdir.rgi_date
 
-            ex_mod = FileModel(rp)
-            print(ex_mod.area_km2_ts()[gdir.rgi_date])
+            # copy advanced experiment to gdir.dir
+            src = os.path.join(dir,ex[0])
+            dst = os.path.join(gdir.dir,ex[0])
+            copyfile(src, dst)
 
-            '''
+            ex_mod = FileModel(dst)
+            bias = float(ex[0].split('_')[-1].split('.nc')[0])
+
             if ex_mod.area_km2_ts()[t_e] > 0.01:
                 df = find_possible_glaciers(gdir, t_0, t_e, 200)
-            '''
+
 
 
