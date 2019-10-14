@@ -12,6 +12,7 @@ from oggm.core.flowline import FluxBasedModel, FileModel
 import oggm
 from leclercq.leclercq_plots import *
 sys.path.append('../')
+sys.path.append('../../')
 from  initialization.core import *
 import advanced_experiments
 import copy

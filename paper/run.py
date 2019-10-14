@@ -14,6 +14,30 @@ from oggm import cfg, workflow, utils
 pd.options.mode.chained_assignment = None
 
 
+def fitness_function(model1, model2):
+    """
+    calculates the objective value (difference in geometry)
+    :param model1: oggm.flowline.FluxBasedModel
+    :param model2: oggm.flowline.FluxBasedModel
+    :return:       float
+    """
+    model1 = deepcopy(model1)
+    model2 = deepcopy(model2)
+    model2.run_until(2000)
+    model1.run_until(2000)
+
+    fls1 = model1.fls
+    fls2 = model2.fls
+
+    fitness = 0
+    for i in range(len(model1.fls)):
+        fitness = fitness + np.sum(
+            abs(fls1[i].surface_h - fls2[i].surface_h)**2) + \
+                    np.sum(abs(fls1[i].widths - fls2[i].widths)**2)
+
+    return fitness
+
+
 def find_median(df, epsilon):
 
     try:
@@ -45,7 +69,7 @@ if __name__ == '__main__':
         cfg.PATHS['working_dir'] = WORKING_DIR
         job_nr = int(os.environ.get('I'))
     else:
-        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/alps2/'
+        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/alps/'
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
 
@@ -63,42 +87,35 @@ if __name__ == '__main__':
 
     # Use HISTALP climate file
     cfg.PARAMS['baseline_climate'] = 'HISTALP'
-    cfg.PARAMS['prcp_scaling_factor'] = 1.75
-    cfg.PARAMS['temp_all_liq'] = 2.0
-    cfg.PARAMS['temp_default_gradient'] = -0.0065
-    cfg.PARAMS['temp_melt'] = -1.75
-    cfg.PARAMS['temp_all_solid'] = 0.0
-
-    # add to BASENAMES
-    _doc = 'contains observed and searched glacier from synthetic experiment to find intial state'
-    cfg.BASENAMES['synthetic_experiment'] = ('synthetic_experiment.pkl', _doc)
 
     # We use intersects
     db = utils.get_rgi_intersects_region_file(version='61', region='11')
     cfg.set_intersects_db(db)
 
-    cfg.PARAMS['run_mb_calibration'] = False
+    cfg.PARAMS['run_mb_calibration'] = True
     cfg.PARAMS['optimize_inversion_params'] = False
+
+    # add to BASENAMES
+    _doc = 'contains observed and searched glacier from synthetic experiment to find intial state'
+    cfg.BASENAMES['synthetic_experiment'] = ('synthetic_experiment.pkl', _doc)
 
     # RGI file
     path = utils.get_rgi_region_file('11', version='61')
     rgidf = gpd.read_file(path)
-    #rgidf = rgidf[rgidf.RGIId == 'RGI60-11.00779']
+    rgidf = rgidf[rgidf.RGIId == 'RGI60-11.00779']
 
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=False)
-    job_nr=0
-    rgidf = rgidf.tail(5)
-    #rgidf = rgidf[job_nr:len(rgidf):80]
+
     gdirs = workflow.init_glacier_regions(rgidf)
 
     if ON_CLUSTER:
         gdirs = gdirs[job_nr:len(gdirs):80]
 
-    preprocessing(gdirs)
+    # preprocessing(gdirs)
 
-    # experiments.py
-    synthetic_experiments_parallel(gdirs)
+    # experiments
+    # synthetic_experiments_parallel(gdirs)
 
     t_0 = 1850
     t_e = 2000
@@ -166,4 +183,3 @@ if __name__ == '__main__':
     if ON_CLUSTER:
         model_df.to_pickle(os.path.join(cfg.PATHS['working_dir'], 'models_' + str(job_nr) + '.pkl'), compression='gzip')
         time_df.to_pickle(os.path.join(cfg.PATHS['working_dir'], 'time_' + str(job_nr) + '.pkl'), compression='gzip')
-    '''

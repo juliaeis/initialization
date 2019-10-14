@@ -50,27 +50,6 @@ class HandlerColorLineCollection(HandlerLineCollection):
         lc.set_linewidth(artist.get_linewidth())
         return [lc]
 
-def plot_advanced_experiment(gdir):
-
-    fig = plt.figure(figsize=(15, 14))
-    grid = plt.GridSpec(1, 2, hspace=0.2, wspace=0.2)
-    ax1 = plt.subplot(grid[0])
-    ax2 = plt.subplot(grid[1], sharey=ax1)
-    ax2.plot(gdir.rgi_date,gdir.rgi_area_km2,'o', label='RGI area '+ str(gdir.rgi_date))
-    mod = FluxBasedModel(flowlines=gdir.read_pickle('model_flowlines'))
-    ax2.plot(gdir.rgi_date, mod.area_km2, 'o',
-             label='RGI area ' + str(gdir.rgi_date))
-
-    for f in os.listdir(gdir.dir):
-        if f.startswith('model_run_'):
-            rp = os.path.join(gdir.dir,f)
-            model = FileModel(rp)
-            model.area_km2_ts().plot(ax=ax2, label=f)
-
-    #ax2.set_xlim((1915,2005))
-    #ax2.legend()
-    plt.show()
-
 
 def plot_fitness_values(gdir, df, ex_mod, ys, ye, lec, plot_dir):
 
