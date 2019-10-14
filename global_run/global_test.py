@@ -82,7 +82,7 @@ if __name__ == '__main__':
             bias = float(ex[0].split('_')[-1].split('.nc')[0])
 
             if ex_mod.area_km2_ts()[t_e] > 0.01:
-                df = find_possible_glaciers(gdir, t_0, t_e, 200,ex_mod,bias)
+                df = find_possible_glaciers(gdir, t_0, t_e, 200, ex_mod, bias)
 
 
 
