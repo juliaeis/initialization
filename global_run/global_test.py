@@ -12,7 +12,7 @@ pd.options.mode.chained_assignment = None
 if __name__ == '__main__':
     cfg.initialize()
 
-    ON_CLUSTER = True
+    ON_CLUSTER = False
 
     # Local paths
     if ON_CLUSTER:
@@ -23,7 +23,7 @@ if __name__ == '__main__':
         WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/global/'
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
-        REGION='11'
+        REGION='05'
 
     cfg.PATHS['plot_dir'] = os.path.join(cfg.PATHS['working_dir'], 'plots')
     utils.mkdir(cfg.PATHS['plot_dir'], reset=False)
@@ -55,18 +55,26 @@ if __name__ == '__main__':
     rgidf = rgidf.sort_values('Area', ascending=True)
 
     #select HEF
-    gdirs = workflow.init_glacier_regions(rgidf[rgidf['RGIId']=='RGI60-11.00779'])
+    gdirs = workflow.init_glacier_regions(rgidf[1:2])
 
     t_0 = 1917
-    t_e = 2000
+
     epsilon = 125
     preprocessing(gdirs)
-    synthetic_experiments_parallel(gdirs,t_0, t_e)
+    advanced_experiments(gdirs, [0], 1917, REGION)
 
     for gdir in gdirs:
-        rp = gdir.get_filepath('model_run', filesuffix='_experiment')
-        ex_mod = FileModel(rp)
+        ex = [f for f in os.listdir(gdir.dir) if f.startswith('model_run_ad')]
+        if len(ex)==1:
+            suffix = ex[0].split('model_run')[-1].split('.nc')[0]
+            rp = gdir.get_filepath('model_run', filesuffix=suffix)
 
-        if ex_mod.area_km2_ts()[t_e] > 0.01:
-            df = find_possible_glaciers(gdir, t_0, t_e, 200)
+            ex_mod = FileModel(rp)
+            print(ex_mod.area_km2_ts()[gdir.rgi_date])
+
+            '''
+            if ex_mod.area_km2_ts()[t_e] > 0.01:
+                df = find_possible_glaciers(gdir, t_0, t_e, 200)
+            '''
+
 
