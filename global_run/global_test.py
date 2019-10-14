@@ -18,9 +18,11 @@ if __name__ == '__main__':
     if ON_CLUSTER:
         WORKING_DIR = os.environ.get("S_WORKDIR")
         cfg.PATHS['working_dir'] = WORKING_DIR
+        OUT_DIR = os.environ.get("OUTDIR")
         REGION = str(os.environ.get('REGION')).zfill(2)
     else:
         WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/global/'
+        OUT_DIR = WORKING_DIR
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
         REGION='05'
@@ -60,11 +62,12 @@ if __name__ == '__main__':
     t_0 = 1917
 
     epsilon = 125
-    preprocessing(gdirs)
-    advanced_experiments(gdirs, [0], 1917, REGION)
+    #preprocessing(gdirs)
+    #advanced_experiments(gdirs, [0], 1917, REGION)
 
     for gdir in gdirs:
-        ex = [f for f in os.listdir(gdir.dir) if f.startswith('model_run_ad')]
+        dir = os.path.join(OUT_DIR,'per_glacier',gdir.dir.split('/per_glacier/')[-1])
+        ex = [f for f in os.listdir(dir) if f.startswith('model_run_ad')]
         if len(ex)==1:
             suffix = ex[0].split('model_run')[-1].split('.nc')[0]
             rp = gdir.get_filepath('model_run', filesuffix=suffix)
