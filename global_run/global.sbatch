@@ -18,14 +18,18 @@ source /home/users/julia/python3_env/bin/activate
 # /work/username exists and is writable by the jobs user.
 # We create a sub-directory there for this job to store its runtime data at.
 S_WORKDIR="/work/$SLURM_JOB_USER/global"
+OUTDIR="/home/users/julia/initialization/out"
 
 mkdir -p "$S_WORKDIR"
+mkdir -p "$OUTDIR"
+
 echo "Workdir for this run: $S_WORKDIR"
 echo "$SLURM_ARRAY_TASK_ID"
 I=$SLURM_ARRAY_TASK_ID
 # Export the WORKDIR as environment variable so our benchmark script can use it to find its working $
 export S_WORKDIR
 export I
+export OUTDIR
 # set RGI region
 export REGION=11
 export OGGM_DOWNLOAD_CACHE="/home/data/download"
