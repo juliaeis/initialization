@@ -20,8 +20,9 @@ if __name__ == '__main__':
     if ON_CLUSTER:
         WORKING_DIR = os.environ.get("S_WORKDIR")
         cfg.PATHS['working_dir'] = WORKING_DIR
-        OUT_DIR = os.environ.get("OUTDIR")
+        OUT_DIR = os.path.join(os.environ.get("OUTDIR"),'global')
         REGION = str(os.environ.get('REGION')).zfill(2)
+        JOB_NR = int(os.environ.get('I'))
     else:
         WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/global/'
         OUT_DIR = WORKING_DIR
@@ -71,11 +72,7 @@ if __name__ == '__main__':
 
     for gdir in gdirs:
         # split command works different on Cluster and localy
-        if ON_CLUSTER:
-            dir = os.path.join(OUT_DIR,'global', gdir.dir.split('/global/')[-1])
-        else:
-            dir = os.path.join(OUT_DIR, gdir.dir.split('/global/')[-1])
-
+        dir = os.path.join(OUT_DIR, gdir.dir.split('/global/')[-1])
         ex = [f for f in os.listdir(dir) if f.startswith('model_run_ad')]
         t_e = gdir.rgi_date
         if len(ex)==1 :
