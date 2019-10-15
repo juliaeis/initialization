@@ -155,8 +155,13 @@ def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
                 bias = round((bounds[0] + bounds[1]) / 2, 1)
 
                 ex_mod2 = _run_experiment(gdir, temp_bias, bias, ys, ye)
-
-                diff = mod.area_km2 - ex_mod2.area_km2_ts()[ye]
+                if ex_mod2!= None:
+                    diff = mod.area_km2 - ex_mod2.area_km2_ts()[ye]
+                else:
+                    if bias <=0:
+                        diff = -np.inf
+                    else:
+                        diff = np.inf
 
                 df = df.append(pd.Series({'bias': bias, 'area_diff': diff}),
                                ignore_index=True)
@@ -164,7 +169,7 @@ def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
                 if (abs(diff) < 1e-4) or bounds[1] - bounds[0] <= 1:
                     break
 
-                elif ex_mod2.area_km2_ts()[ye] > mod.area_km2:
+                elif diff<0:
                     bounds[0] = bias
                 else:
                     bounds[1] = bias
@@ -176,8 +181,7 @@ def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
             for file in os.listdir(gdir.dir):
                 if file.startswith('model') and file.endswith('.nc') and not file.endswith(str(bias)+'.nc'):
                     os.remove(os.path.join(gdir.dir,file))
-                else:
-                    print(file)
+
             rp = gdir.get_filepath('model_run',
                                    filesuffix='_advanced_experiment_' + str(
                                        temp_bias) + '_' + str(bias))
