@@ -136,14 +136,12 @@ def advanced_experiments(gdirs, temp_bias_list ,ys , region):
     return p
 
 def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
+    best_df = pd.DataFrame()
+    for temp_bias in temp_bias_list:
+        try:
 
-    try:
-        best_df = pd.DataFrame()
-
-        fls = gdir.read_pickle('model_flowlines')
-        mod = FluxBasedModel(flowlines=fls)
-
-        for temp_bias in temp_bias_list:
+            fls = gdir.read_pickle('model_flowlines')
+            mod = FluxBasedModel(flowlines=fls)
 
             ye = gdir.rgi_date
             max_it = 15
@@ -194,8 +192,8 @@ def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
                 {'rgi_id': gdir.rgi_id, 'bias': bias, 'iterations': i,
                  'area_diff': diff, 'model': model, 'temp_bias': temp_bias})
 
-    except:
-        series = pd.Series({'rgi_id': gdir.rgi_id, 'temp_bias': temp_bias})
+        except:
+            series = pd.Series({'rgi_id': gdir.rgi_id, 'temp_bias': temp_bias})
 
     best_df = best_df.append(series, ignore_index=True)
 
