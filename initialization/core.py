@@ -123,17 +123,19 @@ def _run_to_present(tupel, gdir, ys, ye, bias):
 
 def advanced_experiments(gdirs, temp_bias_list ,ys , region):
 
-    exp_df = pd.DataFrame()
+    #exp_df = pd.DataFrame()
 
     pool = Pool()
     list = pool.map(partial(find_residual,temp_bias_list=temp_bias_list,ys=ys),gdirs)
     pool.close()
     pool.join()
-
+    '''
     exp_df = exp_df.append(list, ignore_index=True)
     p = os.path.join(cfg.PATHS['working_dir'], str(region)+'_advanced_experiments.pkl')
     exp_df.to_pickle(p, compression='gzip')
     return p
+    '''
+
 
 def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
     best_df = pd.DataFrame()

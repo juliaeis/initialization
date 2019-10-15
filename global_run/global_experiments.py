@@ -57,31 +57,40 @@ if __name__ == '__main__':
     path = utils.get_rgi_region_file(REGION, version='61')
     rgidf = gpd.read_file(path)
     rgidf = rgidf.sort_values('Area', ascending=False)
-    #rgidf = rgidf[24:48]
+    #rgidf = rgidf[rgidf.RGIId == 'RGI60-05.00789']
 
     #select 24th-48th largest glaciers
-    gdirs = workflow.init_glacier_regions(rgidf[24:48])
+    gdirs = workflow.init_glacier_regions(rgidf[-1:])
 
     t_0 = 1917
 
     epsilon = 125
-    preprocessing(gdirs)
-    advanced_experiments(gdirs, [0], 1917, REGION)
-    '''
+    #preprocessing(gdirs)
+    #advanced_experiments(gdirs, [0], 1917, REGION)
+
 
     for gdir in gdirs:
-        dir = os.path.join(OUT_DIR,'global',gdir.dir.split('/global/')[-1])
-        ex = [f for f in os.listdir(dir) if f.startswith('model_run_ad')]
-        if len(ex)==1:
-            t_e = gdir.rgi_date
+        # split command works different on Cluster and localy
+        if ON_CLUSTER:
+            dir = os.path.join(OUT_DIR,'global', gdir.dir.split('/global/')[-1])
+        else:
+            dir = os.path.join(OUT_DIR, gdir.dir.split('/global/')[-1])
 
-            # copy advanced experiment to gdir.dir
-            src = os.path.join(dir,ex[0])
-            dst = os.path.join(gdir.dir,ex[0])
-            copyfile(src, dst)
+        ex = [f for f in os.listdir(dir) if f.startswith('model_run_ad')]
+        t_e = gdir.rgi_date
+        if len(ex)==1 :
+            if dir!=gdir.dir:
+                # copy advanced experiment to gdir.dir
+                src = os.path.join(dir,ex[0])
+                dst = os.path.join(gdir.dir,ex[0])
+                copyfile(src, dst)
+            else:
+                dst = os.path.join(gdir.dir,ex[0])
 
             ex_mod = FileModel(dst)
             bias = float(ex[0].split('_')[-1].split('.nc')[0])
+            print(ex_mod.area_km2_ts()[t_e])
+    '''
             df = find_possible_glaciers(gdir, t_0, t_e, 200, ex_mod, bias)
 
     '''
