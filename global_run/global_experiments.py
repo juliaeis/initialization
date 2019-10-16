@@ -2,36 +2,33 @@
 import sys
 sys.path.append('../')
 from initialization.core import *
-from shutil import copyfile
-
-
 
 import geopandas as gpd
 from oggm import cfg, utils
 pd.options.mode.chained_assignment = None
 
 
+
 if __name__ == '__main__':
     cfg.initialize()
 
-    ON_CLUSTER = True
+    ON_CLUSTER = False
 
     # Local paths
     if ON_CLUSTER:
         WORKING_DIR = os.environ.get("S_WORKDIR")
-
         cfg.PATHS['working_dir'] = WORKING_DIR
         OUT_DIR = os.path.join(os.environ.get("OUTDIR"), WORKING_DIR.split('/')[-1])
+
         REGION = str(os.environ.get('REGION')).zfill(2)
         JOB_NR = int(os.environ.get('I'))
     else:
         WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/global/'
-
         OUT_DIR = WORKING_DIR
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
         REGION='05'
-        JOB_NR = 405
+        JOB_NR = 0
 
     cfg.PATHS['plot_dir'] = os.path.join(cfg.PATHS['working_dir'], 'plots')
     utils.mkdir(cfg.PATHS['plot_dir'], reset=False)
@@ -62,7 +59,7 @@ if __name__ == '__main__':
     rgidf = rgidf.sort_values('Area', ascending=False)
     rgidf = rgidf[JOB_NR*50:(JOB_NR+1)*50]
 
-    gdirs = workflow.init_glacier_regions(rgidf)
+    gdirs = workflow.init_glacier_regions(rgidf[:1])
 
     t_0 = 1917
     epsilon = 125

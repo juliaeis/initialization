@@ -64,7 +64,7 @@ def _run_experiment(gdir, temp_bias, bias, ys,ye):
             model = FileModel(rp)
 
         except:
-            pass
+            model = None
 
     return model
 
