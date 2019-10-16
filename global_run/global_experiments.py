@@ -12,7 +12,7 @@ pd.options.mode.chained_assignment = None
 if __name__ == '__main__':
     cfg.initialize()
 
-    ON_CLUSTER = False
+    ON_CLUSTER = True
 
     # Local paths
     if ON_CLUSTER:
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     rgidf = rgidf.sort_values('Area', ascending=False)
     rgidf = rgidf[JOB_NR*50:(JOB_NR+1)*50]
 
-    gdirs = workflow.init_glacier_regions(rgidf[:1])
+    gdirs = workflow.init_glacier_regions(rgidf)
 
     t_0 = 1917
     epsilon = 125
