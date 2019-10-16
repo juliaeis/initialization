@@ -121,24 +121,15 @@ def _run_to_present(tupel, gdir, ys, ye, bias):
         except:
             return None
 
-def advanced_experiments(gdirs, temp_bias_list ,ys , region):
-
-    #exp_df = pd.DataFrame()
+def advanced_experiments(gdirs, temp_bias_list ,ys ):
 
     pool = Pool()
-    list = pool.map(partial(find_residual,temp_bias_list=temp_bias_list,ys=ys),gdirs)
+    pool.map(partial(find_residual,temp_bias_list=temp_bias_list,ys=ys),gdirs)
     pool.close()
     pool.join()
-    '''
-    exp_df = exp_df.append(list, ignore_index=True)
-    p = os.path.join(cfg.PATHS['working_dir'], str(region)+'_advanced_experiments.pkl')
-    exp_df.to_pickle(p, compression='gzip')
-    return p
-    '''
-
 
 def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
-    best_df = pd.DataFrame()
+
     for temp_bias in temp_bias_list:
         try:
 
@@ -156,7 +147,7 @@ def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
                 bias = round((bounds[0] + bounds[1]) / 2, 1)
 
                 ex_mod2 = _run_experiment(gdir, temp_bias, bias, ys, ye)
-                if ex_mod2!= None:
+                if ex_mod2 != None:
                     diff = mod.area_km2 - ex_mod2.area_km2_ts()[ye]
                 else:
                     if bias <=0:
@@ -178,30 +169,14 @@ def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
 
             # best bias found
             bias = df.iloc[df.area_diff.abs().idxmin()].bias
-            print(bias)
 
             for file in os.listdir(gdir.dir):
-                print(file)
                 if file.startswith('model') and file.endswith('.nc') and not file.endswith('_'+str(bias)+'.nc'):
                     os.remove(os.path.join(gdir.dir,file))
 
-            rp = gdir.get_filepath('model_run',
-                                   filesuffix='_advanced_experiment_' + str(
-                                       temp_bias) + '_' + str(bias))
-            model = FileModel(rp)
-
-            diff = gdir.rgi_area_km2 - model.area_km2_ts()[gdir.rgi_date]
-
-            series = pd.Series(
-                {'rgi_id': gdir.rgi_id, 'bias': bias, 'iterations': i,
-                 'area_diff': diff, 'model': model, 'temp_bias': temp_bias})
-
         except:
-            series = pd.Series({'rgi_id': gdir.rgi_id, 'temp_bias': temp_bias})
+            pass
 
-    best_df = best_df.append(series, ignore_index=True)
-
-    return best_df
 
 
 def _run_random_parallel(gdir, y0, list, bias):
