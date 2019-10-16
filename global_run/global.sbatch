@@ -3,7 +3,7 @@
 #SBATCH --job-name=reconstruction
 #SBATCH --partition=low
 #SBATCH --exclusive
-#SBATCH --array=1-405
+#SBATCH --array=0
 
 # Abort whenever a single step fails. Without this, bash will just continue on errors.
 #set -e

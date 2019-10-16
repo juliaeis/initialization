@@ -57,6 +57,11 @@ if __name__ == '__main__':
     path = utils.get_rgi_region_file(REGION, version='61')
     rgidf = gpd.read_file(path)
     rgidf = rgidf.sort_values('Area', ascending=False)
+
+    # exclude non-landterminating glaciers
+    rgidf = rgidf[rgidf.TermType == 0]
+    rgidf = rgidf[rgidf.Connect != 2]
+
     rgidf = rgidf[JOB_NR*50:(JOB_NR+1)*50]
 
     gdirs = workflow.init_glacier_regions(rgidf)
