@@ -44,7 +44,6 @@ def _run_experiment(gdir, temp_bias, bias, ys,ye):
 
     # otherwise create experiment
     except:
-
         try:
             fls = gdir.read_pickle('model_flowlines')
             model = tasks.run_random_climate(gdir, nyears=600, y0=ys, bias=bias, seed=1,
