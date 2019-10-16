@@ -178,9 +178,11 @@ def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
 
             # best bias found
             bias = df.iloc[df.area_diff.abs().idxmin()].bias
+            print(bias)
 
             for file in os.listdir(gdir.dir):
-                if file.startswith('model') and file.endswith('.nc') and not file.endswith(str(bias)+'.nc'):
+                print(file)
+                if file.startswith('model') and file.endswith('.nc') and not file.endswith('_'+str(bias)+'.nc'):
                     os.remove(os.path.join(gdir.dir,file))
 
             rp = gdir.get_filepath('model_run',

@@ -19,16 +19,19 @@ if __name__ == '__main__':
     # Local paths
     if ON_CLUSTER:
         WORKING_DIR = os.environ.get("S_WORKDIR")
+
         cfg.PATHS['working_dir'] = WORKING_DIR
-        OUT_DIR = os.path.join(os.environ.get("OUTDIR"),'global')
+        OUT_DIR = os.path.join(os.environ.get("OUTDIR"), WORKING_DIR.split('/')[-1])
         REGION = str(os.environ.get('REGION')).zfill(2)
         JOB_NR = int(os.environ.get('I'))
     else:
         WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/global/'
+
         OUT_DIR = WORKING_DIR
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
         REGION='05'
+        JOB_NR = 405
 
     cfg.PATHS['plot_dir'] = os.path.join(cfg.PATHS['working_dir'], 'plots')
     utils.mkdir(cfg.PATHS['plot_dir'], reset=False)
@@ -58,16 +61,19 @@ if __name__ == '__main__':
     path = utils.get_rgi_region_file(REGION, version='61')
     rgidf = gpd.read_file(path)
     rgidf = rgidf.sort_values('Area', ascending=False)
-    #rgidf = rgidf[rgidf.RGIId == 'RGI60-05.00789']
+    rgidf = rgidf[JOB_NR*50:(JOB_NR+1)*50]
+    print(rgidf.Area)
+    '''
+    rgidf = rgidf[rgidf.RGIId == 'RGI60-05.04506']
 
     #select 24th-48th largest glaciers
     gdirs = workflow.init_glacier_regions(rgidf[-1:])
-
+    print(gdirs)
     t_0 = 1917
 
     epsilon = 125
-    #preprocessing(gdirs)
-    #advanced_experiments(gdirs, [0], 1917, REGION)
+    preprocessing(gdirs)
+    advanced_experiments(gdirs, [0], 1917, REGION)
 
 
     for gdir in gdirs:
@@ -87,7 +93,7 @@ if __name__ == '__main__':
             ex_mod = FileModel(dst)
             bias = float(ex[0].split('_')[-1].split('.nc')[0])
             print(ex_mod.area_km2_ts()[t_e])
-    '''
+
             df = find_possible_glaciers(gdir, t_0, t_e, 200, ex_mod, bias)
 
     '''
