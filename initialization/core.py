@@ -214,7 +214,7 @@ def _run_random_task(tupel, gdir, y0, bias):
     if not os.path.exists(path):
 
         try:
-            tasks.run_random_climate(gdir, nyears=400, y0=y0, bias=bias,
+            tasks.run_random_climate(gdir, nyears=600, y0=y0, bias=bias,
                                      seed=seed, temperature_bias=temp_bias,
                                      init_model_fls=copy.deepcopy(fls),
                                      output_filesuffix=suffix)
@@ -317,7 +317,7 @@ def identification(gdir, list, ys, ye, n):
     return fls_list
 
 
-def find_possible_glaciers(gdir, y0, ye, n, ex_mod=None, bias=0):
+def find_possible_glaciers(gdir, y0, ye, n, ex_mod=None, bias=0, delete=False):
 
     path = os.path.join(gdir.dir, 'result' + str(y0) + '.pkl')
 
@@ -327,7 +327,7 @@ def find_possible_glaciers(gdir, y0, ye, n, ex_mod=None, bias=0):
         return results
 
     # 1. Generation of possible glacier states
-    #    - Run random climate over 400 years with different temperature biases
+    #    - Run random climate over 600 years with different temperature biases
     random_list = generation(gdir, y0, bias)
 
     # 2. Identification of glacier candidates
@@ -346,6 +346,7 @@ def find_possible_glaciers(gdir, y0, ye, n, ex_mod=None, bias=0):
 
     # move all model_run* files from year y0 to a new directory --> avoids
     # that thousand of thousands files are created in gdir.dir
+
     utils.mkdir(os.path.join(gdir.dir, str(y0)), reset=False)
     for file in os.listdir(gdir.dir):
         if file.startswith('model_run' + (str(y0))):
