@@ -61,7 +61,10 @@ if __name__ == '__main__':
     lec = lec[lec.REGION==str(REGION)]
 
     # find missing glaciers
-    exp_df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'quick_experiment_df.pkl'))
+    if ON_CLUSTER:
+        exp_df = pd.read_pickle('quick_experiment_df.pkl')
+    else:
+        exp_df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'quick_experiment_df.pkl'))
     exp_df = exp_df[exp_df.temp_bias==TEMP_BIAS]
     exp_df.loc[:,'region'] = exp_df.rgi_id.apply(lambda x: x.split('RGI60-')[-1].split('.')[0])
     exp_df = exp_df[exp_df.region==REGION]
