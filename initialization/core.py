@@ -345,32 +345,48 @@ def find_possible_glaciers(gdir, y0, ye, n, ex_mod=None, bias=0, delete=False):
     #    - copy all model_run files to tarfile
     results = evaluation(gdir, candidate_list, y0, ye, ex_mod, bias, delete)
 
+
     # find acceptable, 5th percentile and median
     if delete:
+        # saves important outputs for evaluation based on experiment and based on fls
         save = {}
 
         # minimum
-        save.update({'minimum': results.loc[results.fitness.idxmin(), 'model'].split('/')[-1]})
+        save.update({'minimum_exp': results.loc[results.fitness.idxmin(), 'model'].split('/')[-1]})
+        save.update({'minimum_fls': results.loc[results.fitness_fls.idxmin(), 'model'].split('/')[-1]})
 
         # acceptable
-        results = results[results.fitness <=1]
-        save.update({'acc_min':results.loc[results.length.idxmin(),'model'].split('/')[-1]})
-        save.update({'acc_max': results.loc[results.length.idxmax(), 'model'].split('/')[-1]})
+        results_exp = results[results.fitness <=1]
+        save.update({'acc_min_exp':results_exp.loc[results_exp.length.idxmin(),'model'].split('/')[-1]})
+        save.update({'acc_max_exp': results_exp.loc[results_exp.length.idxmax(), 'model'].split('/')[-1]})
+        results_fls = results[results.fitness_fls <= 1]
+        save.update({'acc_min_fls': results_fls.loc[results_fls.length.idxmin(), 'model'].split('/')[-1]})
+        save.update({'acc_max_fls': results_fls.loc[results_fls.length.idxmax(), 'model'].split('/')[-1]})
 
         # 5th percentile
-        results = results[results.fitness <= results.fitness.quantile(0.05)]
-        save.update({'perc_min': results.loc[results.length.idxmin(), 'model'].split('/')[-1]})
-        save.update({'perc_max': results.loc[results.length.idxmax(), 'model'].split('/')[-1]})
+        results_exp = results_exp[results_exp.fitness <= results_exp.fitness.quantile(0.05)]
+        save.update({'perc_min_exp': results_exp.loc[results_exp.length.idxmin(), 'model'].split('/')[-1]})
+        save.update({'perc_max_exp': results_exp.loc[results_exp.length.idxmax(), 'model'].split('/')[-1]})
+        results_fls = results_fls[results_fls.fitness_fls <= results_fls.fitness_fls.quantile(0.05)]
+        save.update({'perc_min_fls': results_fls.loc[results_fls.length.idxmin(), 'model'].split('/')[-1]})
+        save.update({'perc_max_fls': results_fls.loc[results_fls.length.idxmax(), 'model'].split('/')[-1]})
 
         # median
-        results = results.sort_values(by='length')
-        l = len(results)
-        if l % 2:
-            index = int((l - 1) / 2)
+        results_exp = results_exp.sort_values(by='length')
+        l1 = len(results_exp)
+        if l1 % 2:
+            index_exp = int((l1 - 1) / 2)
         else:
-            index = int(l / 2)
+            index_exp = int(l1 / 2)
 
-        save.update({'median': results.iloc[index].model.split('/')[-1]})
+        results_fls = results_fls.sort_values(by='length')
+        l2 = len(results_fls)
+        if l2 % 2:
+            index_fls = int((l2 - 1) / 2)
+        else:
+            index_fls = int(l2 / 2)
+        save.update({'median_exp': results_exp.iloc[index_exp].model.split('/')[-1]})
+        save.update({'median_fls': results_exp.iloc[index_fls].model.split('/')[-1]})
 
         # save for later
         pickle.dump(save, open(os.path.join(gdir.dir,'initialization_output.pkl'), "wb"))
@@ -475,6 +491,11 @@ def evaluation(gdir, fls_list, y0, ye, emod, bias, delete):
     emod_t = copy.deepcopy(emod)
     emod_t.run_until(ye)
 
+    # get fls model
+    fls = gdir.read_pickle('model_flowlines')
+    fls_mod = FluxBasedModel(flowlines=fls)
+
+
     for f in suffix_list:
 
         try:
@@ -487,15 +508,16 @@ def evaluation(gdir, fls_list, y0, ye, emod, bias, delete):
             fmod_t = copy.deepcopy(fmod)
             fmod_t.run_until(ye)
             fitness = fitness_value(fmod_t, emod_t, ye)
+            fitness_fls = fitness_value_fls(fmod_t,fls_mod, ye)
             if not delete:
                 df = df.append({'model': copy.deepcopy(fmod), 'fitness': fitness,
-                                'temp_bias': float(f.split('_')[-2]),
+                                'fitness_fls':fitness_fls,'temp_bias': float(f.split('_')[-2]),
                                 'time': f.split('_')[-1], 'volume': fmod.volume_km3},
                                ignore_index=True)
             else:
                 df = df.append({'model':rp, 'fitness':fitness, 'temp_bias': float(f.split('_')[-2]),
                                 'time': f.split('_')[-1], 'volume': fmod.volume_km3,'length': fmod.length_m,
-                                'area': fmod.area_km2},
+                                'area': fmod.area_km2,'fitness_fls':fitness_fls,},
                                ignore_index=True)
 
         except:
@@ -504,12 +526,42 @@ def evaluation(gdir, fls_list, y0, ye, emod, bias, delete):
                             'temp_bias': float(f.split('_')[-2]),
                             'time': f.split('_')[-1], 'volume': None},ignore_index=True)
 
+
     if not delete:
         # save df with result models
         path = os.path.join(gdir.dir, 'result' + str(y0) + '.pkl')
         df.to_pickle(path, compression='gzip')
 
     return df
+
+def fitness_value_fls(model1, model2, ye):
+    """
+    calculates the fitness value (difference in geometry)
+    :param model1: oggm.flowline.FluxBasedModel
+    :param model2: oggm.flowline.FluxBasedModel from fls (only year0)
+    :param ye:     int, year of observation
+    :return:       float
+    """
+
+    model1 = copy.deepcopy(model1)
+    model2 = copy.deepcopy(model2)
+    model2.run_until(0)
+    model1.run_until(ye)
+
+    fls1 = model1.fls
+    fls2 = model2.fls
+    fitness = 0
+    m = 0
+    for i in range(len(model1.fls)):
+        fitness = fitness + np.sum(
+            abs(fls1[i].surface_h - fls2[i].surface_h) ** 2) + \
+                    np.sum(abs(fls1[i].widths - fls2[i].widths) ** 2)
+        m = m + fls1[i].nx
+
+    fitness = fitness / m
+    fitness = fitness/125
+
+    return fitness
 
 
 def fitness_value(model1, model2, ye):
