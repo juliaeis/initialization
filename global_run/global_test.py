@@ -70,34 +70,19 @@ if __name__ == '__main__':
     #advanced_experiments(gdirs, [0], 1917, REGION)
 
     for gdir in gdirs:
+        #dir = os.path.join(OUT_DIR, gdir.dir.split('/global/')[-1])
 
-        dir = os.path.join(OUT_DIR, gdir.dir.split('/global/')[-1])
-        '''
-        ex = [f for f in os.listdir(dir) if f.startswith('model_run_ad')]
+        dir = os.path.join(OUT_DIR,'per_glacier',gdir.dir.split('per_glacier/')[-1])
+        os.system('cp -rf '+dir+'/* '+ gdir.dir)
+
         t_e = gdir.rgi_date
+        ex = [f for f in os.listdir(dir) if f.startswith('model_run_ad')]
         if len(ex)==1 :
-            if dir!=gdir.dir:
-                # copy advanced experiment to gdir.dir
-                src = os.path.join(dir,ex[0])
-                dst = os.path.join(gdir.dir,ex[0])
-                copyfile(src, dst)
-            else:
-                dst = os.path.join(gdir.dir,ex[0])
-        '''
-
-        try:
-            print(os.listdir(gdir.dir))
-            shutil.copytree(dir, gdir.dir)
-            print(os.listdir(gdir.dir))
-            '''
-
+            dst = os.path.join(gdir.dir,ex[0])
             ex_mod = FileModel(dst)
             bias = float(ex[0].split('_')[-1].split('.nc')[0])
 
             df = find_possible_glaciers(gdir, t_0, t_e, 100, ex_mod, bias, delete=True)
             save = pickle.load(open(os.path.join(gdir.dir, 'initialization_output.pkl'),'rb'))
             print(save)
-            '''
-        except:
-            pass
 
