@@ -3,7 +3,6 @@ import sys
 sys.path.append('../')
 from initialization.core import *
 from paper.plots_paper import *
-from shutil import copyfile
 
 
 
@@ -15,7 +14,7 @@ pd.options.mode.chained_assignment = None
 if __name__ == '__main__':
     cfg.initialize()
 
-    ON_CLUSTER = False
+    ON_CLUSTER = True
 
     # Local paths
     if ON_CLUSTER:
@@ -45,7 +44,7 @@ if __name__ == '__main__':
 
     cfg.PARAMS['run_mb_calibration'] = False
     cfg.PARAMS['optimize_inversion_params'] = False
-    cfg.PARAMS['dl_verify'] = False
+    cfg.PARAMS['dl_verify'] = True
 
     # add to BASENAMES
     _doc = 'contains observed and searched glacier from synthetic experiment to find intial state'
@@ -59,19 +58,22 @@ if __name__ == '__main__':
     path = utils.get_rgi_region_file(REGION, version='61')
     rgidf = gpd.read_file(path)
     rgidf = rgidf.sort_values('Area', ascending=False)
-    rgidf = rgidf[rgidf.RGIId == 'RGI60-05.07854']
-    #select HEF
+
+    #select glaciers
+    if ID <= len(rgidf[rgidf.Area >= 1]):
+        rgidf = rgidf[ID:ID + 1]
+    else:
+        rgidf = rgidf[ID:len(rgidf):math.ceil(len(rgidf[rgidf.Area < 1]) / 30)]
+
     gdirs = workflow.init_glacier_regions(rgidf)
 
 
     t_0 = 1917
     epsilon = 125
-    #preprocessing(gdirs)
-    #advanced_experiments(gdirs, [0], 1917, REGION)
 
     for gdir in gdirs:
-        #dir = os.path.join(OUT_DIR, gdir.dir.split('/global/')[-1])
 
+        # copy previous files to gdir.dir
         dir = os.path.join(OUT_DIR,'per_glacier',gdir.dir.split('per_glacier/')[-1])
         os.system('cp -rf '+dir+'/* '+ gdir.dir)
 
@@ -80,9 +82,9 @@ if __name__ == '__main__':
         if len(ex)==1 :
             dst = os.path.join(gdir.dir,ex[0])
             ex_mod = FileModel(dst)
+
             bias = float(ex[0].split('_')[-1].split('.nc')[0])
 
-            df = find_possible_glaciers(gdir, t_0, t_e, 100, ex_mod, bias, delete=True)
-            save = pickle.load(open(os.path.join(gdir.dir, 'initialization_output.pkl'),'rb'))
-            print(save)
+            df = find_possible_glaciers(gdir, t_0, t_e, 200, ex_mod, bias, delete=True)
+
 
