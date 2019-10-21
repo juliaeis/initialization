@@ -1,5 +1,6 @@
 import os
 import copy
+import pickle
 import shutil
 import tarfile
 from functools import partial
@@ -342,18 +343,66 @@ def find_possible_glaciers(gdir, y0, ye, n, ex_mod=None, bias=0, delete=False):
     #    - Evaluate candidates based on the fitnessfunction
     #    - Save all models in pd.DataFrame and write pickle
     #    - copy all model_run files to tarfile
-    results = evaluation(gdir, candidate_list, y0, ye, ex_mod, bias)
+    results = evaluation(gdir, candidate_list, y0, ye, ex_mod, bias, delete)
 
-    # move all model_run* files from year y0 to a new directory --> avoids
-    # that thousand of thousands files are created in gdir.dir
+    # find acceptable, 5th percentile and median
+    if delete:
+        save = {}
 
-    utils.mkdir(os.path.join(gdir.dir, str(y0)), reset=False)
-    for file in os.listdir(gdir.dir):
-        if file.startswith('model_run' + (str(y0))):
-            os.rename(os.path.join(gdir.dir, file),
-                      os.path.join(gdir.dir, str(y0), file))
-        elif file.startswith('model_diagnostics' + (str(y0))):
-            os.remove(os.path.join(gdir.dir, file))
+        # minimum
+        save.update({'minimum': results.loc[results.fitness.idxmin(), 'model'].split('/')[-1]})
+
+        # acceptable
+        results = results[results.fitness <=1]
+        save.update({'acc_min':results.loc[results.length.idxmin(),'model'].split('/')[-1]})
+        save.update({'acc_max': results.loc[results.length.idxmax(), 'model'].split('/')[-1]})
+
+        # 5th percentile
+        results = results[results.fitness <= results.fitness.quantile(0.05)]
+        save.update({'perc_min': results.loc[results.length.idxmin(), 'model'].split('/')[-1]})
+        save.update({'perc_max': results.loc[results.length.idxmax(), 'model'].split('/')[-1]})
+
+        # median
+        results = results.sort_values(by='length')
+        l = len(results)
+        if l % 2:
+            index = int((l - 1) / 2)
+        else:
+            index = int(l / 2)
+
+        save.update({'median': results.iloc[index].model.split('/')[-1]})
+
+        # save for later
+        pickle.dump(save, open(os.path.join(gdir.dir,'initialization_output.pkl'), "wb"))
+
+
+        # delete other files
+        for file in os.listdir(gdir.dir):
+            if file.startswith('model_run' + (str(y0))):
+                if not file in set(save.values()):
+                    os.remove(os.path.join(gdir.dir, file))
+
+                    # remove diagnostic file, too
+                    file = file.split('model_run')
+                    file.insert(0, 'model_diagnostics')
+                    file = os.path.join(gdir.dir,''.join(file))
+                    try:
+                        os.remove(file)
+                    except:
+                        pass
+
+    else:
+
+        # move all model_run* files from year y0 to a new directory --> avoids
+        # that thousand of thousands files are created in gdir.dir
+
+        utils.mkdir(os.path.join(gdir.dir, str(y0)), reset=False)
+        for file in os.listdir(gdir.dir):
+            if file.startswith('model_run' + (str(y0))):
+                os.rename(os.path.join(gdir.dir, file),
+                          os.path.join(gdir.dir, str(y0), file))
+            elif file.startswith('model_diagnostics' + (str(y0))):
+                os.remove(os.path.join(gdir.dir, file))
 
     return results
 
@@ -397,7 +446,8 @@ def generation(gdir, y0, bias):
     return random_run_list
 
 
-def evaluation(gdir, fls_list, y0, ye, emod, bias):
+def evaluation(gdir, fls_list, y0, ye, emod, bias, delete):
+
     """
     Creates a pd.DataFrame() containing all tested glaciers candidates in year
     yr. Read all "model_run+str(yr)+_past*.nc" files in gdir.dir
@@ -437,19 +487,27 @@ def evaluation(gdir, fls_list, y0, ye, emod, bias):
             fmod_t = copy.deepcopy(fmod)
             fmod_t.run_until(ye)
             fitness = fitness_value(fmod_t, emod_t, ye)
-            df = df.append({'model': copy.deepcopy(fmod), 'fitness': fitness,
-                            'temp_bias': float(f.split('_')[-2]),
-                            'time': f.split('_')[-1], 'volume': fmod.volume_km3},
-                           ignore_index=True)
+            if not delete:
+                df = df.append({'model': copy.deepcopy(fmod), 'fitness': fitness,
+                                'temp_bias': float(f.split('_')[-2]),
+                                'time': f.split('_')[-1], 'volume': fmod.volume_km3},
+                               ignore_index=True)
+            else:
+                df = df.append({'model':rp, 'fitness':fitness, 'temp_bias': float(f.split('_')[-2]),
+                                'time': f.split('_')[-1], 'volume': fmod.volume_km3,'length': fmod.length_m,
+                                'area': fmod.area_km2},
+                               ignore_index=True)
+
         except:
 
             df = df.append({'model': None, 'fitness': None,
                             'temp_bias': float(f.split('_')[-2]),
                             'time': f.split('_')[-1], 'volume': None},ignore_index=True)
 
-    # save df with result models
-    path = os.path.join(gdir.dir, 'result' + str(y0) + '.pkl')
-    df.to_pickle(path, compression='gzip')
+    if not delete:
+        # save df with result models
+        path = os.path.join(gdir.dir, 'result' + str(y0) + '.pkl')
+        df.to_pickle(path, compression='gzip')
 
     return df
 
@@ -479,6 +537,7 @@ def fitness_value(model1, model2, ye):
         m = m + fls1[i].nx
 
     fitness = fitness / m
+    fitness = fitness/125
 
     return fitness
 
@@ -489,32 +548,6 @@ def preprocessing(gdirs):
     :param gdirs: list of oggm.GlacierDirectories
     :return None, but creates required files
     """
-    '''
-
-
-    workflow.execute_entity_task(tasks.glacier_masks, gdirs)
-
-    list_tasks = [
-        tasks.glacier_masks,
-        tasks.compute_centerlines,
-        tasks.initialize_flowlines,
-        tasks.compute_downstream_line,
-        tasks.compute_downstream_bedshape,
-        tasks.catchment_area,
-        tasks.catchment_intersections,
-        tasks.catchment_width_geom,
-        tasks.catchment_width_correction,
-        tasks.process_histalp_data
-    ]
-    for task in list_tasks:
-        workflow.execute_entity_task(task, gdirs)
-
-    workflow.climate_tasks(gdirs)
-    workflow.execute_entity_task(tasks.prepare_for_inversion, gdirs)
-    workflow.execute_entity_task(mass_conservation_inversion, gdirs)
-    workflow.execute_entity_task(tasks.filter_inversion_output, gdirs)
-    '''
-
     workflow.gis_prepro_tasks(gdirs)
     workflow.climate_tasks(gdirs)
     workflow.inversion_tasks(gdirs)
