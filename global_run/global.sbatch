@@ -23,14 +23,14 @@ OUTDIR="/home/users/julia/initialization/out"
 mkdir -p "$S_WORKDIR"
 mkdir -p "$OUTDIR"
 
+export S_WORKDIR
+export OUTDIR
+
 echo "Workdir for this run: $S_WORKDIR"
 echo "$SLURM_ARRAY_TASK_ID"
 I=$SLURM_ARRAY_TASK_ID
 
-export S_WORKDIR
 export I
-export OUTDIR
-
 export REGION=05
 
 export OGGM_DOWNLOAD_CACHE="/home/data/download"

@@ -78,7 +78,7 @@ if __name__ == '__main__':
         os.system('cp -rf '+dir+'/* '+ gdir.dir)
 
         t_e = gdir.rgi_date
-        ex = [f for f in os.listdir(dir) if f.startswith('model_run_ad')]
+        ex = [f for f in os.listdir(gdir.dir) if f.startswith('model_run_ad')]
         if len(ex)==1 :
             dst = os.path.join(gdir.dir,ex[0])
             ex_mod = FileModel(dst)

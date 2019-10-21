@@ -184,7 +184,7 @@ if __name__ == '__main__':
 
     cfg.initialize()
 
-    ON_CLUSTER = True
+    ON_CLUSTER = False
     REGION = '11'
 
     # Local paths
@@ -206,11 +206,10 @@ if __name__ == '__main__':
             REGION_NAME = REGION+'d'
 
     else:
-	WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/leclercq'
+        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/leclercq'
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
-    print(REGION_NAME)
-    print(TEMP_BIAS)
+
 
     cfg.PATHS['plot_dir'] = os.path.join(cfg.PATHS['working_dir'], 'plots')
     utils.mkdir(cfg.PATHS['plot_dir'], reset=False)
@@ -236,7 +235,8 @@ if __name__ == '__main__':
     # read leclercq links
     lec = pd.read_csv('rgi_leclercq_links_2014_RGIV6.csv')
     lec['REGION'] = lec.RGI_ID.apply(lambda x: x.split('-')[-1].split('.')[0])
-
+    print(lec)
+    '''
     # We use intersects
     db = utils.get_rgi_intersects_region_file(version='61', region=REGION)
     cfg.set_intersects_db(db)
@@ -251,6 +251,8 @@ if __name__ == '__main__':
      # exclude non-landterminating glaciers
     rgidf = rgidf[rgidf.TermType==0]
     rgidf = rgidf[rgidf.Connect !=2]
+
+
 
     # sort for efficient using
     rgidf = rgidf.sort_values('Area', ascending=True)
@@ -323,7 +325,7 @@ if __name__ == '__main__':
     diff.to_pickle(os.path.join(cfg.PATHS['working_dir'], REGION_NAME+'_leclercq_difference.pkl'))
 
 
-'''
+
 
 
     #except:

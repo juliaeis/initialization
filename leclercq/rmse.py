@@ -337,7 +337,7 @@ if __name__ == '__main__':
 
 
     df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'error_df.pkl'))
-    df.region = pd.to_numeric(df.region)
+    df.Acrylamidregion = pd.to_numeric(df.region)
     df.rmse = df.rmse/1000
     '''
 
@@ -346,10 +346,16 @@ if __name__ == '__main__':
     #plot_rmspe(df, cfg.PATHS['plot_dir'])
     #plot_mean_error(df, cfg.PATHS['plot_dir'])
 
+    # read leclercq links
+    lec = pd.read_csv('rgi_leclercq_links_2014_RGIV6.csv')
+    lec['REGION'] = lec.RGI_ID.apply(lambda x: x.split('-')[-1].split('.')[0])
+    print(lec)
+
     exp_df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'experiment_df.pkl'))
+    print(len(exp_df.rgi_id.unique()))
     exp_df = exp_df[exp_df.rgi_id == 'RGI60-11.00897'].sort_values(by='temp_bias')
     grid = plt.GridSpec(1, 2, hspace=0.2, wspace=0)
-    plt.figure(figsize=(20,15))
+    plt.figure(figsize=(20,10))
     ax1 = plt.subplot(grid[0])
     ax2 = plt.subplot(grid[1], sharey=ax1)
     for  i in exp_df.index:
