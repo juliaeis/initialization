@@ -72,19 +72,22 @@ if __name__ == '__main__':
     epsilon = 125
 
     for gdir in gdirs:
+        try:
+            # copy previous files to gdir.dir
+            dir = os.path.join(OUT_DIR,'per_glacier',gdir.dir.split('per_glacier/')[-1])
+            os.system('cp -rf '+dir+'/* '+ gdir.dir)
 
-        # copy previous files to gdir.dir
-        dir = os.path.join(OUT_DIR,'per_glacier',gdir.dir.split('per_glacier/')[-1])
-        os.system('cp -rf '+dir+'/* '+ gdir.dir)
+            t_e = gdir.rgi_date
+            ex = [f for f in os.listdir(gdir.dir) if f.startswith('model_run_ad')]
+            if len(ex)==1 :
+                dst = os.path.join(gdir.dir,ex[0])
+                ex_mod = FileModel(dst)
 
-        t_e = gdir.rgi_date
-        ex = [f for f in os.listdir(gdir.dir) if f.startswith('model_run_ad')]
-        if len(ex)==1 :
-            dst = os.path.join(gdir.dir,ex[0])
-            ex_mod = FileModel(dst)
+                bias = float(ex[0].split('_')[-1].split('.nc')[0])
 
-            bias = float(ex[0].split('_')[-1].split('.nc')[0])
+                df = find_possible_glaciers(gdir, t_0, t_e, 200, ex_mod, bias, delete=True)
 
-            df = find_possible_glaciers(gdir, t_0, t_e, 200, ex_mod, bias, delete=True)
+        except Exception as e:
+            print(e)
 
 
