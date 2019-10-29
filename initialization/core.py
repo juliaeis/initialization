@@ -356,37 +356,43 @@ def find_possible_glaciers(gdir, y0, ye, n, ex_mod=None, bias=0, delete=False):
         save.update({'minimum_fls': results.loc[results.fitness_fls.idxmin(), 'model'].split('/')[-1]})
 
         # acceptable
-        results_exp = results[results.fitness <=1]
-        save.update({'acc_min_exp':results_exp.loc[results_exp.length.idxmin(),'model'].split('/')[-1]})
-        save.update({'acc_max_exp': results_exp.loc[results_exp.length.idxmax(), 'model'].split('/')[-1]})
+        results_exp = results[results.fitness <= 1]
+        if len(results_exp) > 0:
+            # acceptable
+            save.update({'acc_min_exp': results_exp.loc[results_exp.length.idxmin(), 'model'].split('/')[-1]})
+            save.update({'acc_max_exp': results_exp.loc[results_exp.length.idxmax(), 'model'].split('/')[-1]})
+
+            # 5th percentile
+            results_exp = results_exp[results_exp.fitness <= results_exp.fitness.quantile(0.05)]
+            save.update({'perc_min_exp': results_exp.loc[results_exp.length.idxmin(), 'model'].split('/')[-1]})
+            save.update({'perc_max_exp': results_exp.loc[results_exp.length.idxmax(), 'model'].split('/')[-1]})
+
+            # median
+            results_exp = results_exp.sort_values(by='length')
+            l1 = len(results_exp)
+            if l1 % 2:
+                index_exp = int((l1 - 1) / 2)
+            else:
+                index_exp = int(l1 / 2)
+            save.update({'median_exp': results_exp.iloc[index_exp].model.split('/')[-1]})
+
         results_fls = results[results.fitness_fls <= 1]
-        save.update({'acc_min_fls': results_fls.loc[results_fls.length.idxmin(), 'model'].split('/')[-1]})
-        save.update({'acc_max_fls': results_fls.loc[results_fls.length.idxmax(), 'model'].split('/')[-1]})
+        if len(results_fls) > 0:
+            save.update({'acc_min_fls': results_fls.loc[results_fls.length.idxmin(), 'model'].split('/')[-1]})
+            save.update({'acc_max_fls': results_fls.loc[results_fls.length.idxmax(), 'model'].split('/')[-1]})
 
-        # 5th percentile
-        results_exp = results_exp[results_exp.fitness <= results_exp.fitness.quantile(0.05)]
-        save.update({'perc_min_exp': results_exp.loc[results_exp.length.idxmin(), 'model'].split('/')[-1]})
-        save.update({'perc_max_exp': results_exp.loc[results_exp.length.idxmax(), 'model'].split('/')[-1]})
-        results_fls = results_fls[results_fls.fitness_fls <= results_fls.fitness_fls.quantile(0.05)]
-        save.update({'perc_min_fls': results_fls.loc[results_fls.length.idxmin(), 'model'].split('/')[-1]})
-        save.update({'perc_max_fls': results_fls.loc[results_fls.length.idxmax(), 'model'].split('/')[-1]})
+            results_fls = results_fls[results_fls.fitness_fls <= results_fls.fitness_fls.quantile(0.05)]
+            save.update({'perc_min_fls': results_fls.loc[results_fls.length.idxmin(), 'model'].split('/')[-1]})
+            save.update({'perc_max_fls': results_fls.loc[results_fls.length.idxmax(), 'model'].split('/')[-1]})
 
-        # median
-        results_exp = results_exp.sort_values(by='length')
-        l1 = len(results_exp)
-        if l1 % 2:
-            index_exp = int((l1 - 1) / 2)
-        else:
-            index_exp = int(l1 / 2)
+            results_fls = results_fls.sort_values(by='length')
+            l2 = len(results_fls)
+            if l2 % 2:
+                index_fls = int((l2 - 1) / 2)
+            else:
+                index_fls = int(l2 / 2)
 
-        results_fls = results_fls.sort_values(by='length')
-        l2 = len(results_fls)
-        if l2 % 2:
-            index_fls = int((l2 - 1) / 2)
-        else:
-            index_fls = int(l2 / 2)
-        save.update({'median_exp': results_exp.iloc[index_exp].model.split('/')[-1]})
-        save.update({'median_fls': results_exp.iloc[index_fls].model.split('/')[-1]})
+            save.update({'median_fls':results_exp.iloc[index_fls].model.split('/')[-1]})
 
         # save for later
         pickle.dump(save, open(os.path.join(gdir.dir,'initialization_output.pkl'), "wb"))
