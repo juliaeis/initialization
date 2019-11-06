@@ -18,7 +18,7 @@ source /home/users/julia/python3_env/bin/activate
 # /work/username exists and is writable by the jobs user.
 # We create a sub-directory there for this job to store its runtime data at.
 S_WORKDIR="/work/$SLURM_JOB_USER/global"
-OUTDIR="/home/users/julia/initialization/out"
+OUTDIR="/home/users/julia/MimenimaOutput"
 
 mkdir -p "$S_WORKDIR"
 mkdir -p "$OUTDIR"
