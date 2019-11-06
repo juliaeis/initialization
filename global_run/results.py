@@ -24,10 +24,8 @@ if __name__ == '__main__':
 
     # Local paths
     if ON_CLUSTER:
-        WORKING_DIR = os.environ.get("S_WORKDIR")
-        cfg.PATHS['working_dir'] = WORKING_DIR
         OUT_DIR = os.environ.get("OUTDIR")
-
+        cfg.PATHS['working_dir'] = OUT_DIR
     else:
         WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/leclercq_diff/temp_0'
         cfg.PATHS['working_dir'] = WORKING_DIR
