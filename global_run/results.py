@@ -32,8 +32,19 @@ def read_result_parallel(gdir):
     if len(ex) == 1:
         path = os.path.join(gdir.dir, ex[0])
         ex_mod = FileModel(path)
+        ye = ex_mod.volume_km3_ts().index[-1]
         bias = float(ex[0].split('_')[-1].split('.nc')[0])
         ts = ex_mod.volume_km3_ts()
+        if ye <2016:
+            ex_mod.run_until(ye)
+            tasks.run_from_climate_data(gdir, ys=ye, ye=2016, bias=bias,
+                                        output_filesuffix='_to_2016',
+                                        init_model_fls=copy.deepcopy(ex_mod.fls))
+
+            res_mod = FileModel(gdir.get_filepath('model_run', filesuffix='_to_2016'))
+            ts2 = res_mod.volume_km3_ts()
+            ts2 = ts2[ts2.index[1:]]
+            ts = pd.concat([ts,ts2])
         ts['rgi_id'] = gdir.rgi_id
         return ts
     else:
@@ -73,6 +84,6 @@ if __name__ == '__main__':
             rgidf = rgidf[rgidf.TermType == 0]
             rgidf = rgidf[rgidf.Connect != 2]
 
-            gdirs = workflow.init_glacier_regions(rgidf.head(10))
+            gdirs = workflow.init_glacier_regions(rgidf.head(9))
             df = read_results(gdirs)
             print(df)
