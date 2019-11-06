@@ -36,7 +36,7 @@ if __name__ == '__main__':
     cfg.PATHS['plot_dir'] = os.path.join(cfg.PATHS['working_dir'], 'plots')
     utils.mkdir(cfg.PATHS['plot_dir'], reset=False)
 
-    for dir in OUT_DIR:
+    for dir in os.listdir(OUT_DIR):
         if dir.startswith('reg1'):
             REGION = dir.split('reg')[-1].split('-')[0].zfill(2)
 
