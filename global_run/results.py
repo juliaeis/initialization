@@ -9,6 +9,8 @@ from oggm import utils, cfg
 import geopandas as gpd
 from oggm.utils._downloads import get_demo_file
 from oggm.core.flowline import FluxBasedModel, FileModel
+import matplotlib.pyplot as plt
+
 
 sys.path.append('../')
 sys.path.append('../../')
@@ -36,15 +38,18 @@ def read_result_parallel(gdir):
         bias = float(ex[0].split('_')[-1].split('.nc')[0])
         ts = ex_mod.volume_km3_ts()
         if ye <2016:
-            ex_mod.run_until(ye)
-            tasks.run_from_climate_data(gdir, ys=ye, ye=2016, bias=bias,
-                                        output_filesuffix='_to_2016',
-                                        init_model_fls=copy.deepcopy(ex_mod.fls))
+            try:
+                ex_mod.run_until(ye)
+                tasks.run_from_climate_data(gdir, ys=ye, ye=2016, bias=bias,
+                                            output_filesuffix='_to_2016',
+                                            init_model_fls=copy.deepcopy(ex_mod.fls))
 
-            res_mod = FileModel(gdir.get_filepath('model_run', filesuffix='_to_2016'))
-            ts2 = res_mod.volume_km3_ts()
-            ts2 = ts2[ts2.index[1:]]
-            ts = pd.concat([ts,ts2])
+                res_mod = FileModel(gdir.get_filepath('model_run', filesuffix='_to_2016'))
+                ts2 = res_mod.volume_km3_ts()
+                ts2 = ts2[ts2.index[1:]]
+                ts = pd.concat([ts,ts2])
+            except:
+                pass
         ts['rgi_id'] = gdir.rgi_id
         return ts
     else:
@@ -55,12 +60,13 @@ if __name__ == '__main__':
     cfg.initialize()
 
     ON_CLUSTER = False
-    REGION = '02'
+    REG = '01'
 
     # Local paths
     if ON_CLUSTER:
         OUT_DIR = os.environ.get("OUTDIR")
         cfg.PATHS['working_dir'] = OUT_DIR
+        REG = os.environ.get("I")
     else:
         WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/global'
         OUT_DIR = WORKING_DIR
@@ -74,16 +80,17 @@ if __name__ == '__main__':
         if dir.startswith('reg1'):
             cfg.PATHS['working_dir'] = os.path.join(OUT_DIR,dir)
             REGION = dir.split('reg')[-1].split('-')[0].zfill(2)
+            if REGION ==  REG:
 
-            # RGI file
-            path = utils.get_rgi_region_file(REGION, version='61')
-            rgidf = gpd.read_file(path)
-            #rgidf = rgidf.sort_values('Area', ascending=False)
+                # RGI file
+                path = utils.get_rgi_region_file(REGION, version='61')
+                rgidf = gpd.read_file(path)
+                #rgidf = rgidf.sort_values('Area', ascending=False)
 
-            # exclude non-landterminating glaciers
-            rgidf = rgidf[rgidf.TermType == 0]
-            rgidf = rgidf[rgidf.Connect != 2]
+                # exclude non-landterminating glaciers
+                rgidf = rgidf[rgidf.TermType == 0]
+                rgidf = rgidf[rgidf.Connect != 2]
 
-            gdirs = workflow.init_glacier_regions(rgidf.head(9))
-            df = read_results(gdirs)
-            print(df)
+                gdirs = workflow.init_glacier_regions(rgidf.head(9))
+                df = read_results(gdirs)
+                print(df)
