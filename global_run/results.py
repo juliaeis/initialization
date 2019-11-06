@@ -14,6 +14,28 @@ sys.path.append('../')
 sys.path.append('../../')
 from  initialization.core import *
 
+def read_results(gdirs):
+
+    model_df = pd.DataFrame()
+    pool = mp.Pool()
+    list = pool.map(read_result_parallel, gdirs)
+    pool.close()
+    pool.join()
+    model_df = model_df.append(list, ignore_index=True)
+    return model_df
+
+def read_result_parallel(gdir):
+
+    t_e = gdir.rgi_date
+    ex = [f for f in os.listdir(gdir.dir) if f.startswith('model_run_ad')]
+    if len(ex) == 1:
+        path = os.path.join(gdir.dir, ex[0])
+        ex_mod = FileModel(path)
+        bias = float(ex[0].split('_')[-1].split('.nc')[0])
+        print(ex_mod.length_m_ts())
+
+    #except:
+    return pd.Series({'rgi':gdir.rgi_id})
 
 
 if __name__ == '__main__':
@@ -48,5 +70,4 @@ if __name__ == '__main__':
             rgidf = rgidf[rgidf.Connect != 2]
 
             gdirs = workflow.init_glacier_regions(rgidf)
-            for gdir in gdirs:
-                print(gdir.dir)
+            df = read_results(gdirs)
