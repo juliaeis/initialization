@@ -20,7 +20,7 @@ if __name__ == '__main__':
     cfg.initialize()
 
     ON_CLUSTER = False
-    REGION = '01'
+    REGION = '02'
 
     # Local paths
     if ON_CLUSTER:
