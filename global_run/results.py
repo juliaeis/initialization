@@ -28,14 +28,16 @@ def read_result_parallel(gdir):
 
     t_e = gdir.rgi_date
     ex = [f for f in os.listdir(gdir.dir) if f.startswith('model_run_ad')]
+
     if len(ex) == 1:
         path = os.path.join(gdir.dir, ex[0])
         ex_mod = FileModel(path)
         bias = float(ex[0].split('_')[-1].split('.nc')[0])
-        print(ex_mod.length_m_ts())
-
-    #except:
-    return pd.Series({'rgi':gdir.rgi_id})
+        ts = ex_mod.volume_km3_ts()
+        ts['rgi_id'] = gdir.rgi_id
+        return ts
+    else:
+        return pd.Series({'rgi_id':gdir.rgi_id})
 
 
 if __name__ == '__main__':
@@ -49,7 +51,8 @@ if __name__ == '__main__':
         OUT_DIR = os.environ.get("OUTDIR")
         cfg.PATHS['working_dir'] = OUT_DIR
     else:
-        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/leclercq_diff/temp_0'
+        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/global'
+        OUT_DIR = WORKING_DIR
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
 
@@ -58,16 +61,18 @@ if __name__ == '__main__':
 
     for dir in os.listdir(OUT_DIR):
         if dir.startswith('reg1'):
+            cfg.PATHS['working_dir'] = os.path.join(OUT_DIR,dir)
             REGION = dir.split('reg')[-1].split('-')[0].zfill(2)
 
             # RGI file
             path = utils.get_rgi_region_file(REGION, version='61')
             rgidf = gpd.read_file(path)
-            rgidf = rgidf.sort_values('Area', ascending=False)
+            #rgidf = rgidf.sort_values('Area', ascending=False)
 
             # exclude non-landterminating glaciers
             rgidf = rgidf[rgidf.TermType == 0]
             rgidf = rgidf[rgidf.Connect != 2]
 
-            gdirs = workflow.init_glacier_regions(rgidf)
+            gdirs = workflow.init_glacier_regions(rgidf.head(10))
             df = read_results(gdirs)
+            print(df)
