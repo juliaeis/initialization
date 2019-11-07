@@ -6,13 +6,14 @@ from initialization.core import *
 import geopandas as gpd
 from oggm import cfg, utils
 pd.options.mode.chained_assignment = None
+from oggm.workflow import execute_entity_task
 
 
 
 if __name__ == '__main__':
     cfg.initialize()
 
-    ON_CLUSTER = True
+    ON_CLUSTER = False
 
     # Local paths
     if ON_CLUSTER:
@@ -26,11 +27,11 @@ if __name__ == '__main__':
         JOB_NR = int(os.environ.get('I'))
         TEMP_BIAS = float(os.environ.get('TEMP_BIAS'))
     else:
-        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/global/'
+        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/wgms/'
         OUT_DIR = WORKING_DIR
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
-        REGION='05'
+        REGION='11'
         JOB_NR = 0
 
     cfg.PATHS['plot_dir'] = os.path.join(cfg.PATHS['working_dir'], 'plots')
@@ -59,7 +60,7 @@ if __name__ == '__main__':
     # RGI file
     path = utils.get_rgi_region_file(REGION, version='61')
     rgidf = gpd.read_file(path)
-    rgidf = rgidf.sort_values('Area', ascending=False)
+    rgidf = rgidf.sort_values('Area', ascending=False).head(100)
 
     # exclude non-landterminating glaciers
     rgidf = rgidf[rgidf.TermType == 0]
@@ -69,14 +70,19 @@ if __name__ == '__main__':
 
 
     gdirs = workflow.init_glacier_regions(rgidf)
+    execute_entity_task(tasks.process_cru_data, gdirs, print_log=False)
 
+    # here we select wgms glaciers
+    gdirs = utils.get_ref_mb_glaciers(gdirs)
 
-    # here you will need to select the gdirs which are wgms glaciers
+    # Keep only these
+    rgidf = rgidf.loc[rgidf.RGIId.isin([g.rgi_id for g in gdirs])]
 
-
+    # initialize glaciers
+    gdirs = workflow.init_glacier_regions(rgidf)
 
     # runs only a quarter of glaciers per job array
-    gdirs= gdirs[JOB_NR:len(gdirs):4]
+    #gdirs= gdirs[JOB_NR:len(gdirs):4]
 
     t_0 = 1917
     epsilon = 125
@@ -84,4 +90,5 @@ if __name__ == '__main__':
     preprocessing(gdirs)
 
     advanced_experiments(gdirs, [TEMP_BIAS], t_0)
+
 
