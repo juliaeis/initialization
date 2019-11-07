@@ -2,7 +2,7 @@
 import sys
 sys.path.append('../')
 from initialization.core import *
-
+import shutil
 import geopandas as gpd
 from oggm import cfg, utils
 pd.options.mode.chained_assignment = None
@@ -66,9 +66,7 @@ if __name__ == '__main__':
     rgidf = rgidf[rgidf.TermType == 0]
     rgidf = rgidf[rgidf.Connect != 2]
 
-    # select from job array number which glaciers to run
-
-
+    # initilize wgms glaciers
     gdirs = workflow.init_glacier_regions(rgidf)
     execute_entity_task(tasks.process_cru_data, gdirs, print_log=False)
 
@@ -77,6 +75,9 @@ if __name__ == '__main__':
 
     # Keep only these
     rgidf = rgidf.loc[rgidf.RGIId.isin([g.rgi_id for g in gdirs])]
+
+    # delete gdir
+    shutil.rmtree(os.path.join(cfg.PATHS['working_dir'],'per_glacier'))
 
     # initialize glaciers
     gdirs = workflow.init_glacier_regions(rgidf)
@@ -90,5 +91,6 @@ if __name__ == '__main__':
     preprocessing(gdirs)
 
     advanced_experiments(gdirs, [TEMP_BIAS], t_0)
+
 
 
