@@ -162,5 +162,5 @@ if __name__ == '__main__':
         except Exception as e:
             print(e)
 
-    diff.to_pickle(os.path.join(cfg.PATHS['working_dir'], REGION + '_leclercq_difference.csv'))
+    diff.to_csv(os.path.join(cfg.PATHS['working_dir'], REGION + '_leclercq_difference.csv'))
     delta_diff.to_csv(os.path.join(cfg.PATHS['working_dir'], REGION + '_' + str(JOB_NR) + 'OGGM_instablity.csv'))
