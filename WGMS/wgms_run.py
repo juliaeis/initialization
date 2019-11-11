@@ -8,7 +8,7 @@ from oggm.core.massbalance import MultipleFlowlineMassBalance, PastMassBalance
 import geopandas as gpd
 from oggm import cfg, utils
 pd.options.mode.chained_assignment = None
-
+from copy import deepcopy
 
 if __name__ == '__main__':
     cfg.initialize()
@@ -112,7 +112,7 @@ if __name__ == '__main__':
                     mod.run_until(t_0)
                     tasks.run_from_climate_data(gdir, ys=t_0,
                                                 ye=refmb.index[-1],
-                                                init_model_fls=copy.deepcopy(mod.fls),
+                                                init_model_fls=deepcopy(mod.fls),
                                                 output_filesuffix='_until_refmb',
                                                 bias=bias)
                     mod = FileModel(gdir.get_filepath('model_run',
@@ -125,7 +125,7 @@ if __name__ == '__main__':
                 # get mass balance from MassBalanceModel
                 for yr in mod.volume_km3_ts().index:
                     mod.run_until(yr)
-                    mb = MultipleFlowlineMassBalance(gdir, fls=copy.deepcopy(mod.fls),
+                    mb = MultipleFlowlineMassBalance(gdir, fls=deepcopy(mod.fls),
                                                      mb_model_class=PastMassBalance,
                                                      bias=bias)
                     df.loc[yr, 'OGGM_mb'] = mb.get_specific_mb(year=[mod.yr])
