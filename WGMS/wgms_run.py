@@ -10,6 +10,26 @@ from oggm import cfg, utils
 pd.options.mode.chained_assignment = None
 from copy import deepcopy
 
+def find_median(df):
+
+
+    try:
+        accept_df = df[df.fitness <= 1]
+        quant_df = accept_df[accept_df.fitness <= accept_df.fitness.quantile(0.05)]
+        # median state
+        quant_df.loc[:, 'length'] = quant_df.model.apply(lambda x: x.length_m)
+        quant_df = quant_df.sort_values('length', ascending=False)
+        l = len(quant_df)
+        if l % 2:
+            index = int((l - 1) / 2)
+        else:
+            index = int(l / 2)
+
+        return deepcopy(quant_df.iloc[index].model), quant_df.at[quant_df.length.idxmin(),'model'], quant_df.at[quant_df.length.idxmax(),'model']
+    except:
+        return deepcopy(df.iloc[df.fitness.idxmin()].model), None, None
+
+
 if __name__ == '__main__':
     cfg.initialize()
 
@@ -96,7 +116,7 @@ if __name__ == '__main__':
                 # get mb bias and temp_bias
                 bias = float(ex[0].split('_')[-1].split('.nc')[0])
                 temp_bias = cfg.PATHS['working_dir'].split('_')[-1]
-                '''
+
                 # run initialization
                 df = find_possible_glaciers(gdir, t_0, t_e, 200, ex_mod, bias, delete=False)
                 df.fitness = pd.to_numeric(df.fitness / 125)
@@ -104,7 +124,7 @@ if __name__ == '__main__':
 
                 # get median and percentile states
                 mod, perc_min, perc_max = find_median(df)
-                '''
+
                 mod = ex_mod
 
                 # if observation record longer than rgi_date: create new model which can be run until last observation record
