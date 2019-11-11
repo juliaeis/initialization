@@ -3,7 +3,7 @@ import sys
 sys.path.append('../')
 from initialization.core import *
 from paper.plots_paper import *
-
+from oggm.core.massbalance import MultipleFlowlineMassBalance, PastMassBalance
 
 import geopandas as gpd
 from oggm import cfg, utils
@@ -62,12 +62,14 @@ if __name__ == '__main__':
     rgidf = rgidf[rgidf.TermType == 0]
     rgidf = rgidf[rgidf.Connect != 2]
 
-    # gdirs with all glaciers
+    wgms = utils.get_ref_mb_glaciers_candidates()
+
+    # Keep only the wgms reference glaciers
+    rgidf = rgidf.loc[rgidf.RGIId.isin(wgms)]
+    rgidf = rgidf.loc[rgidf.RGIId.isin(['RGI60-03.00840'])]
+
+    # initialize glaciers
     gdirs = workflow.init_glacier_regions(rgidf)
-
-    # here you will need to select the gdirs which are wgms glaciers
-
-
 
     # runs only a quarter of glaciers per job array
     gdirs = gdirs[JOB_NR:len(gdirs):4]
@@ -75,8 +77,10 @@ if __name__ == '__main__':
     t_0 = 1917
     epsilon = 125
     diff = pd.DataFrame()
+    delta_diff = pd.DataFrame()
 
     for gdir in gdirs:
+        refmb = gdir.get_ref_mb_data().copy()
         try:
             # copy previous files to gdir.dir
             dir = os.path.join(OUT_DIR,'per_glacier',gdir.dir.split('per_glacier/')[-1])
@@ -85,47 +89,76 @@ if __name__ == '__main__':
             t_e = gdir.rgi_date
             ex = [f for f in os.listdir(gdir.dir) if f.startswith('model_run_ad')]
             if len(ex)==1 :
+                # read experiment
                 dst = os.path.join(gdir.dir,ex[0])
                 ex_mod = FileModel(dst)
 
+                # get mb bias and temp_bias
                 bias = float(ex[0].split('_')[-1].split('.nc')[0])
+                temp_bias = cfg.PATHS['working_dir'].split('_')[-1]
 
                 # run initialization
                 df = find_possible_glaciers(gdir, t_0, t_e, 200, ex_mod, bias, delete=False)
-
                 df.fitness = pd.to_numeric(df.fitness / 125)
                 df = df.dropna(subset=['fitness'])
 
-                med_mod, perc_min, perc_max = find_median(df)
+                # get median and percentile states
+                mod, perc_min, perc_max = find_median(df)
 
+                # if observation record longer than rgi_date: create new model which can be run until last observation record
+                if refmb.index[-1] > gdir.rgi_date:
+                    mod.run_until(t_0)
+                    tasks.run_from_climate_data(gdir, ys=t_0,
+                                                ye=refmb.index[-1],
+                                                init_model_fls=copy.deepcopy(mod.fls),
+                                                output_filesuffix='_until_refmb',
+                                                bias=bias)
+                    mod = FileModel(gdir.get_filepath('model_run',
+                                                      filesuffix='_until_refmb'))
 
-                # from her onwards: how I have calcuated the rmse, ... to leclercq
-                lec.loc[1917] = np.nan
-                lec = lec.sort_index().interpolate()[lec.index >= 1917]
+                # get modelled mass balance from volume difference
+                df.loc[:-1, 'OGGM_dv'] = mod.volume_m3_ts().diff() * cfg.PARAMS['ice_density'] / mod.area_m2_ts()
+                df = df.shift(-1)
 
-                rmse = np.sqrt(((lec - med_mod.length_m_ts(rollmin=5)[lec.index]) ** 2).mean())
-                rmspe = np.sqrt((((lec - med_mod.length_m_ts(rollmin=5)[lec.index]) / lec) ** 2).mean()) * 100
-                error = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).mean()
-                perc_error = ((lec - med_mod.length_m_ts(rollmin=5)[lec.index]) / lec).mean()
+                # get mass balance from MassBalanceModel
+                for yr in mod.volume_km3_ts().index:
+                    mod.run_until(yr)
+                    mb = MultipleFlowlineMassBalance(gdir, fls=copy.deepcopy(mod.fls),
+                                                     mb_model_class=PastMassBalance,
+                                                     bias=bias)
+                    df.loc[yr, 'OGGM_mb'] = mb.get_specific_mb(year=[mod.yr])
 
-                max = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).max()
-                min = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).min()
+                # set WGMS data
+                df.loc[:, 'WGMS'] = refmb.ANNUAL_BALANCE
+                df.index = df.index.astype(int)
+
+                # difference between Mass Balance and volume delta
+                rmse_d = np.sqrt(((df.OGGM_mb - df.OGGM_dv) ** 2).mean())
+                max_d = (df.OGGM_mb - df.OGGM_dv).abs().max()
+                delta_diff.loc[gdir.rgi_id, 'region'] = REGION
+                delta_diff.loc[gdir.rgi_id, 'rmse'] = rmse_d
+                delta_diff.loc[gdir.rgi_id, 'max_diff'] = max_d
+                delta_diff.loc[gdir.rgi_id, 'temp_bias'] = temp_bias
+
+                # difference between modelled and observed mass balance at WGMS years
+                df = df.dropna(subset=['WGMS'])
+                rmse = np.sqrt(((df.WGMS - df.OGGM_mb) ** 2).mean())
+                error = (df.WGMS - df.OGGM_mb).mean()
+                max = (df.WGMS - df.OGGM_mb).max()
+                min = (df.WGMS - df.OGGM_mb).min()
                 if abs(max) > abs(min):
                     max_diff = max
                 else:
                     max_diff = min
-
-                temp_bias = cfg.PATHS['working_dir'].split('_')[-1]
-
                 diff.loc[gdir.rgi_id, 'region'] = REGION
                 diff.loc[gdir.rgi_id, 'rmse'] = rmse
-                diff.loc[gdir.rgi_id, 'rmspe'] = rmspe
                 diff.loc[gdir.rgi_id, 'error'] = error
-                diff.loc[gdir.rgi_id, 'perc_error'] = perc_error
                 diff.loc[gdir.rgi_id, 'max_diff'] = max_diff
+                diff.loc[gdir.rgi_id, 'temp_bias'] = temp_bias
 
 
         except Exception as e:
             print(e)
 
-    diff.to_pickle(os.path.join(cfg.PATHS['working_dir'], REGION + '_leclercq_difference.pkl'))
+    diff.to_pickle(os.path.join(cfg.PATHS['working_dir'], REGION + '_leclercq_difference.csv'))
+    delta_diff.to_csv(os.path.join(cfg.PATHS['working_dir'], REGION + '_' + str(JOB_NR) + 'OGGM_instablity.csv'))
