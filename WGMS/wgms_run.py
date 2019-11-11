@@ -33,7 +33,7 @@ def find_median(df):
 if __name__ == '__main__':
     cfg.initialize()
 
-    ON_CLUSTER = True
+    ON_CLUSTER = False
 
     # Local paths
     if ON_CLUSTER:
@@ -43,11 +43,12 @@ if __name__ == '__main__':
         REGION = str(os.environ.get('REGION')).zfill(2)
         JOB_NR =  int(os.environ.get("I"))
     else:
-        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/global/'
+        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/wgms/temp_-0.25'
         OUT_DIR = WORKING_DIR
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
-        REGION='05'
+        REGION='01'
+        JOB_NR=0
 
     cfg.PATHS['plot_dir'] = os.path.join(cfg.PATHS['working_dir'], 'plots')
     utils.mkdir(cfg.PATHS['plot_dir'], reset=False)
@@ -86,7 +87,7 @@ if __name__ == '__main__':
 
     # Keep only the wgms reference glaciers
     rgidf = rgidf.loc[rgidf.RGIId.isin(wgms)]
-    rgidf = rgidf.loc[rgidf.RGIId.isin(['RGI60-03.00840'])]
+    rgidf = rgidf.loc[rgidf.RGIId.isin(['RGI60-01.04591'])]
 
     # initialize glaciers
     gdirs = workflow.init_glacier_regions(rgidf)
@@ -104,7 +105,7 @@ if __name__ == '__main__':
         try:
             # copy previous files to gdir.dir
             dir = os.path.join(OUT_DIR,'per_glacier',gdir.dir.split('per_glacier/')[-1])
-            os.system('cp -rf '+dir+'/* '+ gdir.dir)
+            #os.system('cp -rf '+dir+'/* '+ gdir.dir)
             refmb = gdir.get_ref_mb_data().copy()
             t_e = gdir.rgi_date
             ex = [f for f in os.listdir(gdir.dir) if f.startswith('model_run_ad')]
@@ -118,14 +119,13 @@ if __name__ == '__main__':
                 temp_bias = cfg.PATHS['working_dir'].split('_')[-1]
 
                 # run initialization
-                df = find_possible_glaciers(gdir, t_0, t_e, 200, ex_mod, bias, delete=False)
-                df.fitness = pd.to_numeric(df.fitness / 125)
-                df = df.dropna(subset=['fitness'])
+                res_df = find_possible_glaciers(gdir, t_0, t_e, 200, ex_mod, bias, delete=False)
+
+                res_df.fitness = pd.to_numeric(res_df.fitness / 125)
+                res_df = res_df.dropna(subset=['fitness'])
 
                 # get median and percentile states
-                mod, perc_min, perc_max = find_median(df)
-
-                mod = ex_mod
+                mod, perc_min, perc_max = find_median(res_df)
 
                 # if observation record longer than rgi_date: create new model which can be run until last observation record
                 if refmb.index[-1] > gdir.rgi_date:
@@ -149,6 +149,7 @@ if __name__ == '__main__':
                                                      mb_model_class=PastMassBalance,
                                                      bias=bias)
                     df.loc[yr, 'OGGM_mb'] = mb.get_specific_mb(year=[mod.yr])
+
 
                 # set WGMS data
                 df.loc[:, 'WGMS'] = refmb.ANNUAL_BALANCE
@@ -181,6 +182,5 @@ if __name__ == '__main__':
 
         except Exception as e:
             print(e)
-
     diff.to_csv(os.path.join(cfg.PATHS['working_dir'], REGION + '_' + str(JOB_NR)+ '_leclercq_difference.csv'))
     delta_diff.to_csv(os.path.join(cfg.PATHS['working_dir'], REGION + '_' + str(JOB_NR) + '_OGGM_instablity.csv'))
