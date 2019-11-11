@@ -80,7 +80,7 @@ if __name__ == '__main__':
     delta_diff = pd.DataFrame()
 
     for gdir in gdirs:
-
+        df = pd.DataFrame()
         try:
             # copy previous files to gdir.dir
             dir = os.path.join(OUT_DIR,'per_glacier',gdir.dir.split('per_glacier/')[-1])
