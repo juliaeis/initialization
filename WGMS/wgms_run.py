@@ -96,7 +96,7 @@ if __name__ == '__main__':
                 # get mb bias and temp_bias
                 bias = float(ex[0].split('_')[-1].split('.nc')[0])
                 temp_bias = cfg.PATHS['working_dir'].split('_')[-1]
-
+                '''
                 # run initialization
                 df = find_possible_glaciers(gdir, t_0, t_e, 200, ex_mod, bias, delete=False)
                 df.fitness = pd.to_numeric(df.fitness / 125)
@@ -104,6 +104,8 @@ if __name__ == '__main__':
 
                 # get median and percentile states
                 mod, perc_min, perc_max = find_median(df)
+                '''
+                mod = ex_mod
 
                 # if observation record longer than rgi_date: create new model which can be run until last observation record
                 if refmb.index[-1] > gdir.rgi_date:
