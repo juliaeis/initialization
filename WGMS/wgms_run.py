@@ -80,12 +80,12 @@ if __name__ == '__main__':
     delta_diff = pd.DataFrame()
 
     for gdir in gdirs:
-        refmb = gdir.get_ref_mb_data().copy()
+
         try:
             # copy previous files to gdir.dir
             dir = os.path.join(OUT_DIR,'per_glacier',gdir.dir.split('per_glacier/')[-1])
             os.system('cp -rf '+dir+'/* '+ gdir.dir)
-
+            refmb = gdir.get_ref_mb_data().copy()
             t_e = gdir.rgi_date
             ex = [f for f in os.listdir(gdir.dir) if f.startswith('model_run_ad')]
             if len(ex)==1 :
