@@ -63,7 +63,11 @@ def _run_experiment(gdir, temp_bias, bias, ys,ye):
             model = FileModel(rp)
 
         except:
-            model = None
+            with open(os.path.join(gdir.dir,'log.txt')) as log:
+                error=list(log)[-1].split(';')[-1]
+            return error
+
+
 
     return model
 
@@ -143,21 +147,22 @@ def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
             df = pd.DataFrame()
 
             while i < max_it:
-                bias = round((bounds[0] + bounds[1]) / 2, 1)
+                bias = round((bounds[0] + bounds[1]) / 2, 2)
 
                 ex_mod2 = _run_experiment(gdir, temp_bias, bias, ys, ye)
-                if ex_mod2 != None:
-                    diff = mod.area_km2 - ex_mod2.area_km2_ts()[ye]
+                if isinstance(ex_mod2, FileModel):
+                    diff = gdir.rgi_area_km2 - ex_mod2.area_km2_ts()[ye]
+                    error = ''
+                # bias needs to be set higher
                 else:
-                    if bias <=0:
-                        diff = -np.inf
-                    else:
-                        diff = np.inf
+                    diff = -np.inf
+                    error = ex_mod2.split(':')[-1]
 
-                df = df.append(pd.Series({'bias': bias, 'area_diff': diff}),
+
+                df = df.append(pd.Series({'bias': bias, 'area_diff': diff, 'error':error}),
                                ignore_index=True)
 
-                if (abs(diff) < 1e-4) or bounds[1] - bounds[0] <= 1:
+                if (abs(diff) < 1e-4) or bounds[1] - bounds[0] <= 0.25:
                     break
 
                 elif diff<0:
@@ -168,10 +173,12 @@ def find_residual(gdir, temp_bias_list, ys, a=-2000, b=2000):
 
             # best bias found
             bias = df.iloc[df.area_diff.abs().idxmin()].bias
+            df.to_csv(os.path.join(gdir.dir,'experiment_iteration.csv'))
 
             for file in os.listdir(gdir.dir):
                 if file.startswith('model') and file.endswith('.nc') and not file.endswith('_'+str(bias)+'.nc'):
                     os.remove(os.path.join(gdir.dir,file))
+
 
         except:
             pass

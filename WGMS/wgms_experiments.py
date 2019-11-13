@@ -27,11 +27,12 @@ if __name__ == '__main__':
         JOB_NR = int(os.environ.get('I'))
         TEMP_BIAS = float(os.environ.get('TEMP_BIAS'))
     else:
-        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/wgms/'
+        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/wgms_test/'
         OUT_DIR = WORKING_DIR
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
-        REGION='11'
+        REGION='06'
+        TEMP_BIAS = -0.75
         JOB_NR = 0
 
     cfg.PATHS['plot_dir'] = os.path.join(cfg.PATHS['working_dir'], 'plots')
@@ -71,6 +72,7 @@ if __name__ == '__main__':
     # Keep only the wgms reference glaciers
     rgidf = rgidf.loc[rgidf.RGIId.isin(wgms)]
 
+
     # initialize glaciers
     gdirs = workflow.init_glacier_regions(rgidf)
 
@@ -81,7 +83,6 @@ if __name__ == '__main__':
     epsilon = 125
 
     preprocessing(gdirs)
-
     advanced_experiments(gdirs, [TEMP_BIAS], t_0)
 
 
