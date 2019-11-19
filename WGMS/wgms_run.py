@@ -43,7 +43,7 @@ if __name__ == '__main__':
         REGION = str(os.environ.get('REGION')).zfill(2)
         JOB_NR =  int(os.environ.get("I"))
     else:
-        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/wgms/temp_-0.25'
+        WORKING_DIR = '/home/juliaeis/Dokumente/OGGM/work_dir/reconstruction/wgms/temp_0'
         OUT_DIR = WORKING_DIR
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
@@ -85,15 +85,32 @@ if __name__ == '__main__':
 
     wgms = utils.get_ref_mb_glaciers_candidates()
 
+    # missing ids
+    ids = ['RGI60-01.01104', 'RGI60-02.00296', 'RGI60-02.01104',
+           'RGI60-02.02631', 'RGI60-02.02636', 'RGI60-02.04379',
+           'RGI60-03.04552', 'RGI60-05.05149', 'RGI60-07.00492',
+           'RGI60-07.01060', 'RGI60-08.00259', 'RGI60-08.00287',
+           'RGI60-08.01099', 'RGI60-08.01217', 'RGI60-08.01598',
+           'RGI60-08.01657', 'RGI60-08.02384', 'RGI60-10.01107',
+           'RGI60-11.00190', 'RGI60-11.00251', 'RGI60-11.00804',
+           'RGI60-11.00843', 'RGI60-11.00918', 'RGI60-11.02072',
+           'RGI60-11.02285', 'RGI60-11.02679', 'RGI60-11.02764',
+           'RGI60-11.03643', 'RGI60-11.03674', 'RGI60-12.01297',
+           'RGI60-13.08624', 'RGI60-14.07524', 'RGI60-14.12365',
+           'RGI60-15.07605', 'RGI60-15.07886', 'RGI60-16.00543']
+
     # Keep only the wgms reference glaciers
     rgidf = rgidf.loc[rgidf.RGIId.isin(wgms)]
-    rgidf = rgidf.loc[rgidf.RGIId.isin(['RGI60-01.04591'])]
+    rgidf = rgidf.loc[rgidf.RGIId.isin(ids)]
+
+
 
     # initialize glaciers
     gdirs = workflow.init_glacier_regions(rgidf)
 
     # runs only a quarter of glaciers per job array
-    gdirs = gdirs[JOB_NR:len(gdirs):4]
+    #gdirs = gdirs[JOB_NR:len(gdirs):4]
+    #preprocessing(gdirs)
 
     t_0 = 1917
     epsilon = 125
@@ -105,11 +122,12 @@ if __name__ == '__main__':
         try:
             # copy previous files to gdir.dir
             dir = os.path.join(OUT_DIR,'per_glacier',gdir.dir.split('per_glacier/')[-1])
-            #os.system('cp -rf '+dir+'/* '+ gdir.dir)
+            os.system('cp -rf '+dir+'/* '+ gdir.dir)
             refmb = gdir.get_ref_mb_data().copy()
             t_e = gdir.rgi_date
             ex = [f for f in os.listdir(gdir.dir) if f.startswith('model_run_ad')]
             if len(ex)==1 :
+
                 # read experiment
                 dst = os.path.join(gdir.dir,ex[0])
                 ex_mod = FileModel(dst)
@@ -120,7 +138,6 @@ if __name__ == '__main__':
 
                 # run initialization
                 res_df = find_possible_glaciers(gdir, t_0, t_e, 200, ex_mod, bias, delete=False)
-
                 res_df.fitness = pd.to_numeric(res_df.fitness / 125)
                 res_df = res_df.dropna(subset=['fitness'])
 
@@ -138,6 +155,7 @@ if __name__ == '__main__':
                     mod = FileModel(gdir.get_filepath('model_run',
                                                       filesuffix='_until_refmb'))
 
+
                 # get modelled mass balance from volume difference
                 df.loc[:-1, 'OGGM_dv'] = mod.volume_m3_ts().diff() * cfg.PARAMS['ice_density'] / mod.area_m2_ts()
                 df = df.shift(-1)
@@ -147,13 +165,16 @@ if __name__ == '__main__':
                     mod.run_until(yr)
                     mb = MultipleFlowlineMassBalance(gdir, fls=deepcopy(mod.fls),
                                                      mb_model_class=PastMassBalance,
-                                                     bias=bias)
+                                                     bias=bias,check_calib_params=False)
+
                     df.loc[yr, 'OGGM_mb'] = mb.get_specific_mb(year=[mod.yr])
+
 
 
                 # set WGMS data
                 df.loc[:, 'WGMS'] = refmb.ANNUAL_BALANCE
                 df.index = df.index.astype(int)
+
 
                 # difference between Mass Balance and volume delta
                 rmse_d = np.sqrt(((df.OGGM_mb - df.OGGM_dv) ** 2).mean())
