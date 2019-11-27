@@ -85,25 +85,9 @@ if __name__ == '__main__':
 
     wgms = utils.get_ref_mb_glaciers_candidates()
 
-    # missing ids
-    ids = ['RGI60-01.01104', 'RGI60-02.00296', 'RGI60-02.01104',
-           'RGI60-02.02631', 'RGI60-02.02636', 'RGI60-02.04379',
-           'RGI60-03.04552', 'RGI60-05.05149', 'RGI60-07.00492',
-           'RGI60-07.01060', 'RGI60-08.00259', 'RGI60-08.00287',
-           'RGI60-08.01099', 'RGI60-08.01217', 'RGI60-08.01598',
-           'RGI60-08.01657', 'RGI60-08.02384', 'RGI60-10.01107',
-           'RGI60-11.00190', 'RGI60-11.00251', 'RGI60-11.00804',
-           'RGI60-11.00843', 'RGI60-11.00918', 'RGI60-11.02072',
-           'RGI60-11.02285', 'RGI60-11.02679', 'RGI60-11.02764',
-           'RGI60-11.03643', 'RGI60-11.03674', 'RGI60-12.01297',
-           'RGI60-13.08624', 'RGI60-14.07524', 'RGI60-14.12365',
-           'RGI60-15.07605', 'RGI60-15.07886', 'RGI60-16.00543']
-
     # Keep only the wgms reference glaciers
     rgidf = rgidf.loc[rgidf.RGIId.isin(wgms)]
-    rgidf = rgidf.loc[rgidf.RGIId.isin(ids)]
-
-
+    #rgidf = rgidf.loc[rgidf.RGIId.isin(['RGI60-01.01104', 'RGI60-01.00570'])]
 
     # initialize glaciers
     gdirs = workflow.init_glacier_regions(rgidf)
@@ -116,6 +100,7 @@ if __name__ == '__main__':
     epsilon = 125
     diff = pd.DataFrame()
     delta_diff = pd.DataFrame()
+    error_df = pd.DataFrame()
 
     for gdir in gdirs:
         df = pd.DataFrame()
@@ -146,14 +131,18 @@ if __name__ == '__main__':
 
                 # if observation record longer than rgi_date: create new model which can be run until last observation record
                 if refmb.index[-1] > gdir.rgi_date:
-                    mod.run_until(t_0)
-                    tasks.run_from_climate_data(gdir, ys=t_0,
-                                                ye=refmb.index[-1],
-                                                init_model_fls=deepcopy(mod.fls),
-                                                output_filesuffix='_until_refmb',
-                                                bias=bias)
-                    mod = FileModel(gdir.get_filepath('model_run',
-                                                      filesuffix='_until_refmb'))
+                    try:
+                        mod = FileModel(gdir.get_filepath('model_run', filesuffix='_until_refmb'))
+                    except:
+
+                        mod.run_until(t_0)
+                        tasks.run_from_climate_data(gdir, ys=t_0,
+                                                    ye=refmb.index[-1],
+                                                    init_model_fls=deepcopy(mod.fls),
+                                                    output_filesuffix='_until_refmb',
+                                                    bias=bias)
+                        mod = FileModel(gdir.get_filepath('model_run',
+                                                          filesuffix='_until_refmb'))
 
 
                 # get modelled mass balance from volume difference
@@ -174,8 +163,14 @@ if __name__ == '__main__':
                 # set WGMS data
                 df.loc[:, 'WGMS'] = refmb.ANNUAL_BALANCE
                 df.index = df.index.astype(int)
+                df1 = df.dropna().drop('OGGM_dv', axis=1).transpose()
+                df1.loc['OGGM_mb','kind'] = 'OGGM'
+                df1.loc['WGMS', 'kind'] = 'WGMS'
+                df1 = df1.rename(index={'OGGM_mb':gdir.rgi_id,'WGMS':gdir.rgi_id})
+                df1.loc[:,'temp_bias']= temp_bias
+                error_df = error_df.append(df1, ignore_index=False)
 
-
+                '''
                 # difference between Mass Balance and volume delta
                 rmse_d = np.sqrt(((df.OGGM_mb - df.OGGM_dv) ** 2).mean())
                 max_d = (df.OGGM_mb - df.OGGM_dv).abs().max()
@@ -199,9 +194,14 @@ if __name__ == '__main__':
                 diff.loc[gdir.rgi_id, 'error'] = error
                 diff.loc[gdir.rgi_id, 'max_diff'] = max_diff
                 diff.loc[gdir.rgi_id, 'temp_bias'] = temp_bias
+                '''
 
 
         except Exception as e:
             print(e)
-    diff.to_csv(os.path.join(cfg.PATHS['working_dir'], REGION + '_' + str(JOB_NR)+ '_leclercq_difference.csv'))
-    delta_diff.to_csv(os.path.join(cfg.PATHS['working_dir'], REGION + '_' + str(JOB_NR) + '_OGGM_instablity.csv'))
+    #diff.to_csv(os.path.join(cfg.PATHS['working_dir'], REGION + '_' + str(JOB_NR)+ '_leclercq_difference.csv'))
+    #delta_diff.to_csv(os.path.join(cfg.PATHS['working_dir'], REGION + '_' + str(JOB_NR) + '_OGGM_instablity.csv'))
+    cols = np.sort(error_df.drop(['kind', 'temp_bias'], axis=1).columns)
+    cols = np.append(cols,['temp_bias','kind'])
+    error_df = error_df[cols].round(3)
+    error_df.to_csv(os.path.join(cfg.PATHS['working_dir'], REGION + '_wgms_difference.csv'))
