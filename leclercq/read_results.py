@@ -84,9 +84,15 @@ def read_result_parallel(gdir):
     ini_df = ini_df.dropna(subset=['fitness'])
 
     med_mod, perc_min, perc_max = find_median(ini_df)
+    temp_bias = cfg.PATHS['working_dir'].split('_')[-1]
+    return pd.Series({'rgi':gdir.rgi_id, 'temp_bias':temp_bias, 'median':med_mod})
 
+    '''
     lec.loc[1917] = np.nan
     lec = lec.sort_index().interpolate()[lec.index >= 1917]
+    med_mod.length_m_ts(rollmin=5)[lec.index]
+
+
     rmse = np.sqrt(((lec - med_mod.length_m_ts(rollmin=5)[lec.index]) ** 2).mean())
     error = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).mean()
     max = (lec - med_mod.length_m_ts(rollmin=5)[lec.index]).max()
@@ -95,12 +101,14 @@ def read_result_parallel(gdir):
         max_diff = max
     else:
         max_diff = min
-    temp_bias = cfg.PATHS['working_dir'].split('_')[-1]
+
 
     # saves median state, minimum state and experiment model
     return pd.Series({'rgi':gdir.rgi_id,'region':gdir.rgi_region,
                       'length':mod.length_m, 'temp_bias':temp_bias,
                       'rmse':rmse, 'max_diff':max_diff, 'error':error})
+
+    '''
 
     #except:
     #    return pd.Series({'rgi':gdir.rgi_id})
@@ -126,7 +134,7 @@ if __name__ == '__main__':
     cfg.PATHS['plot_dir'] = os.path.join(cfg.PATHS['working_dir'], 'plots')
     utils.mkdir(cfg.PATHS['plot_dir'], reset=False)
 
-    for REGION in range(1,2):
+    for REGION in range(11,12):
         REGION = str(REGION).zfill(2)
 
         # read leclercq links
@@ -143,7 +151,7 @@ if __name__ == '__main__':
 
         # only the ones with leclercq observation
         rgidf = rgidf[rgidf.RGIId.isin(lec[lec.REGION==REGION].RGI_ID.values)]
-        rgidf = rgidf[rgidf.RGIId.isin(['RGI60-01.01921'])]
+        rgidf = rgidf[rgidf.RGIId.isin(['RGI60-11.00897'])]
 
         # exclude non-landterminating glaciers
         rgidf = rgidf[rgidf.TermType==0]
@@ -152,6 +160,5 @@ if __name__ == '__main__':
         rgidf = rgidf.sort_values('Area', ascending=True)
 
         gdirs = workflow.init_glacier_regions(rgidf)
-
         df = read_results(gdirs)
-        print(df)
+        df.to_pickle(os.path.join(cfg.PATHS['working_dir'],'lec_median_0.pkl'))
