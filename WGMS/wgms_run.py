@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     # runs only a quarter of glaciers per job array
     #gdirs = gdirs[JOB_NR:len(gdirs):4]
-    #preprocessing(gdirs)
+    preprocessing(gdirs)
 
     t_0 = 1917
     epsilon = 125

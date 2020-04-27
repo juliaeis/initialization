@@ -134,7 +134,7 @@ def plot_experiment(gdir, ex_mod, ys, plot_dir):
     ex_mod.reset_y0(ys)
     ex_mod.run_until(ys)
     i = np.where(ex_mod.fls[-1].thick > 0)[0][-1] + 10
-
+    i = ex_mod.fls[-1].nx
     ax1.plot(x[:i], ex_mod.fls[-1].surface_h[:i], 'k:',
              label=r'$z_{'+str(ys)+'}^{exp}$', linewidth=3)
     ax1.plot(x[:i], ex_mod.fls[-1].bed_h[:i], 'k', label=r'$b$', linewidth=3)
@@ -165,7 +165,7 @@ def plot_experiment(gdir, ex_mod, ys, plot_dir):
     fig_name = 'experiment_'+str(ys)+'_'+gdir.rgi_id
     plt.savefig(os.path.join(plot_dir, fig_name+'.pdf'), dpi=300)
     plt.savefig(os.path.join(plot_dir, fig_name+'.png'), dpi=300)
-    plt.show()
+    #plt.show()
     plt.close()
 
 
@@ -387,7 +387,7 @@ def plot_fitness_values(gdir, df, ex_mod, ys, plot_dir):
     ax3.set_xlim(xmin=1847, xmax=2003)
     fig_name = 'surface_' + str(ys) + '_' + gdir.rgi_id
     #plt.savefig(os.path.join(plot_dir, fig_name + '.pdf'), dpi=300)
-    #plt.savefig(os.path.join(plot_dir, fig_name + '.png'), dpi=300)
+    plt.savefig(os.path.join(plot_dir, fig_name + '.png'), dpi=300)
     plt.show()
     plt.close()
 

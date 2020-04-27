@@ -8,7 +8,8 @@ import matplotlib as mpl
 from oggm import cfg, tasks, workflow, utils
 from oggm.core.flowline import FileModel
 import geopandas as gpd
-from  leclercq_plots import *
+#from  leclercq_plots import *
+from matplotlib.pyplot import cm
 
 mpl.rcParams['axes.linewidth'] = 3
 mpl.rcParams['xtick.major.width'] = 3
@@ -97,8 +98,8 @@ def plot_rmse(df, dir):
                  horizontalalignment='center', size='x-small', color='k',
                  weight='semibold')
 
-    ax1.set_yticks(range(1, 5))
-    ax2.set_yticks(range(1, 5))
+    #ax1.set_yticks(range(1, 5))
+    #ax2.set_yticks(range(1, 5))
 
     ax1.set_xlabel('Region')
     ax2.set_xlabel('Region')
@@ -116,7 +117,7 @@ def plot_rmse(df, dir):
     ax1.set_title('Comparisons with Leclercq')
     plt.savefig(os.path.join(dir,'rmse.png'), dpi=300)
     plt.show()
-    plt.close()
+    #plt.close()
 
 
 def plot_rmspe(df, dir):
@@ -216,6 +217,18 @@ def plot_mean_error(df, dir):
     plt.savefig(os.path.join(dir, 'mean_error.png'), dpi=300)
     plt.show()
 
+def f(x):
+    a = x[0]
+    b = x[1]
+
+    import math
+    if math.isnan(b):
+        b = 'Nan'
+        return str(int(round(a)))+' '+b
+    else:
+        return str(int(round(a)))+ ' ' + str(int(round(b)))
+
+
 if __name__ == '__main__':
 
     cfg.initialize()
@@ -298,16 +311,18 @@ if __name__ == '__main__':
 
     df.to_pickle(os.path.join(cfg.PATHS['working_dir'], 'error_df.pkl'))
     exp_df.to_pickle(os.path.join(cfg.PATHS['working_dir'], 'experiment_df.pkl'))
-    '''
-    '''
-    exp_df =  pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'quick_experiment_df.pkl'))
-    exp_df.loc[:,'region'] = exp_df.rgi_id.apply(lambda x: int(x.split('RGI60-')[-1].split('.')[0]))
 
+    '''
+    exp_df =  pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'experiment_df.pkl'))
+    exp_df.loc[:,'region'] = exp_df.rgi_id.apply(lambda x: int(x.split('RGI60-')[-1].split('.')[0]))
+    '''
     grid = plt.GridSpec(2, 1, hspace=0.4, wspace=0.2)
     ax1 = plt.subplot(grid[0])
     ax2 = plt.subplot(grid[1])
 
-    for temp_bias in np.sort(exp_df.temp_bias.unique()):
+    cmap = plt.get_cmap("tab10")
+
+    for i, temp_bias in enumerate(np.sort(exp_df.temp_bias.unique())):
 
         # Subset to the airline
         subset = exp_df[exp_df['temp_bias'] == temp_bias]
@@ -316,6 +331,8 @@ if __name__ == '__main__':
         sns.distplot(subset['bias'], hist=False, kde=True,
                      kde_kws={'shade': True,'linewidth': 3},
                      label=temp_bias,bins=30, ax=ax2 )
+
+        ax2.axvline(x= subset.bias.mean(), color=cmap(i), linestyle=':')
 
 
     exp_df.area_diff.plot.hist(ax=ax1, bins=40)
@@ -336,10 +353,28 @@ if __name__ == '__main__':
     plt.show()
 
 
+    df = pd.DataFrame()
+    for temp_bias in exp_df.temp_bias.unique():
+
+        df.loc[:,'mean'] = exp_df[exp_df.temp_bias==temp_bias].groupby(['region']).bias.mean()
+        df.loc[:,'std'] = exp_df[exp_df.temp_bias==temp_bias].groupby('region').bias.std()
+
+        df.loc['all', 'mean'] = exp_df[exp_df.temp_bias==temp_bias].bias.mean()
+        df.loc['all', 'std'] = exp_df[exp_df.temp_bias == temp_bias].bias.std()
+        df.loc[:, temp_bias] = df[['mean', 'std']].apply(f, axis=1)
+        df = df.drop(['mean','std'], axis=1)
+
+    df.loc[:, 'n'] = exp_df[exp_df.temp_bias == 0].groupby('region').bias.count()
+    df.loc['all', 'n'] = len(exp_df[exp_df.temp_bias == 0])
+
+    df = df[['n',-1.0,-0.75,-0.5,-0.25,0]]
+    print(df)
+    df.to_latex('table.tex')
+   
     df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'error_df.pkl'))
-    df.Acrylamidregion = pd.to_numeric(df.region)
+    df.region = pd.to_numeric(df.region)
     df.rmse = df.rmse/1000
-    '''
+
 
 
     #plot_rmse(df, cfg.PATHS['plot_dir'])
@@ -353,12 +388,17 @@ if __name__ == '__main__':
 
     exp_df = pd.read_pickle(os.path.join(cfg.PATHS['working_dir'], 'experiment_df.pkl'))
     print(len(exp_df.rgi_id.unique()))
+    '''
     exp_df = exp_df[exp_df.rgi_id == 'RGI60-11.00897'].sort_values(by='temp_bias')
     grid = plt.GridSpec(1, 2, hspace=0.2, wspace=0)
     plt.figure(figsize=(20,10))
     ax1 = plt.subplot(grid[0])
     ax2 = plt.subplot(grid[1], sharey=ax1)
-    for  i in exp_df.index:
+    cmap = plt.get_cmap("tab10")
+    for  j,i in enumerate(exp_df.index):
+        if j >= 3:
+            j = j + 1
+        color = cmap(j)
         # plot past climate
         temp_bias = str(exp_df.loc[i,'temp_bias'])
         if exp_df.loc[i,'temp_bias']== -1.0:
@@ -367,7 +407,7 @@ if __name__ == '__main__':
             temp_bias='-0.50'
         if exp_df.loc[i, 'temp_bias'] == 0.0:
             temp_bias = ' 0.00'
-        exp_df.loc[i,'model'].area_km2_ts().plot(ax=ax2,label= temp_bias+r'$\qquad$'+str(exp_df.loc[i,'bias']))
+        exp_df.loc[i,'model'].area_km2_ts().plot(ax=ax2,color=color,label= temp_bias+r'$\qquad$'+str(exp_df.loc[i,'bias']))
 
         # plot_random climate
         if exp_df.loc[i, 'temp_bias'] == -1.0:
@@ -379,7 +419,7 @@ if __name__ == '__main__':
         name = 'model_run_random_experiment_'+str(exp_df.loc[i,'temp_bias'])+'_'+str(exp_df.loc[i,'bias'])+'.nc'
         file = os.path.join(cfg.PATHS['working_dir'],'temp_'+temp_bias, 'per_glacier','RGI60-11','RGI60-11.00','RGI60-11.00897',name)
         model = FileModel(file)
-        model.area_km2_ts().plot(ax=ax1)
+        model.area_km2_ts().plot(ax=ax1, color=color)
     add_at(ax1,'a')
     add_at(ax2, 'b')
 

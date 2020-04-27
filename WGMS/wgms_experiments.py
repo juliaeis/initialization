@@ -71,7 +71,7 @@ if __name__ == '__main__':
 
     # Keep only the wgms reference glaciers
     rgidf = rgidf.loc[rgidf.RGIId.isin(wgms)]
-
+    rgidf = rgidf.loc[rgidf.RGIId.isin(['RGI60-06.00483'])]
 
     # initialize glaciers
     gdirs = workflow.init_glacier_regions(rgidf)
@@ -82,7 +82,10 @@ if __name__ == '__main__':
     t_0 = 1917
     epsilon = 125
 
-    preprocessing(gdirs)
-    advanced_experiments(gdirs, [TEMP_BIAS], t_0)
-
-
+    #preprocessing(gdirs)
+    #advanced_experiments(gdirs, [TEMP_BIAS], t_0)
+    for gdir in gdirs:
+        df = pd.read_csv(os.path.join(gdir.dir,'experiment_iteration.csv'))
+        error = df.error.dropna().unique()
+        error = "; ".join([str(x).split('\n')[0] for x in error])
+        print(error)

@@ -14,7 +14,7 @@ pd.options.mode.chained_assignment = None
 if __name__ == '__main__':
     cfg.initialize()
 
-    ON_CLUSTER = True
+    ON_CLUSTER = False
 
     # Local paths
     if ON_CLUSTER:
@@ -28,7 +28,7 @@ if __name__ == '__main__':
         OUT_DIR = WORKING_DIR
         cfg.PATHS['working_dir'] = WORKING_DIR
         utils.mkdir(WORKING_DIR, reset=False)
-        REGION='05'
+        REGION='01'
 
     cfg.PATHS['plot_dir'] = os.path.join(cfg.PATHS['working_dir'], 'plots')
     utils.mkdir(cfg.PATHS['plot_dir'], reset=False)
@@ -64,7 +64,8 @@ if __name__ == '__main__':
         rgidf = rgidf[ID:ID + 1]
     else:
         rgidf = rgidf[ID:len(rgidf):math.ceil(len(rgidf[rgidf.Area < 1]) / 30)]
-
+    print(rgidf)
+    '''
     gdirs = workflow.init_glacier_regions(rgidf)
 
 
@@ -89,5 +90,5 @@ if __name__ == '__main__':
 
         except Exception as e:
             print(e)
-
+    '''
 

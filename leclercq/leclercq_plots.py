@@ -9,7 +9,7 @@ import xarray as xr
 import pandas as pd
 from multiprocessing import Pool
 from copy import deepcopy
-FlowlineModel = partial(FluxBasedModel, inplace=False)
+#FlowlineModel = partial(FluxBasedModel, inplace=False)
 from mpl_toolkits.axes_grid.anchored_artists import AnchoredText
 import matplotlib as mpl
 from matplotlib.collections import LineCollection
